@@ -3,7 +3,7 @@ import Astrologer from "../models/Astrologer.js";
 import Consultation from "../models/Consultation.js";
 import { getDemoConsultations } from "../data/bookings.js";
 import { astrologers, services } from "../data/seed.js";
-import { readAuthSession } from "./auth.js";
+import { getWalletForSession, readAuthSession } from "./auth.js";
 
 const router = Router();
 
@@ -28,9 +28,19 @@ function toSerializableBooking(booking) {
     bookingId: booking.bookingId,
     astrologerId: booking.astrologerId,
     astrologerName: booking.astrologerName,
+    customerId: booking.customerId,
+    customerEmail: booking.customerEmail,
     customerName: booking.customerName,
     concern: booking.concern,
     mode: booking.mode,
+    durationMinutes: booking.durationMinutes,
+    consultationFee: booking.consultationFee,
+    amountPaid: booking.amountPaid,
+    currency: booking.currency,
+    paymentStatus: booking.paymentStatus,
+    razorpayOrderId: booking.razorpayOrderId,
+    razorpayPaymentId: booking.razorpayPaymentId,
+    paidAt: booking.paidAt?.toISOString?.() || booking.paidAt || null,
     birthDate: booking.birthDate,
     birthTime: booking.birthTime,
     place: booking.place,
@@ -48,10 +58,17 @@ async function getAstrologerRows(req) {
   return rows.map(({ _id, __v, ...item }) => item);
 }
 
-async function getConsultationRows(req) {
-  if (!req.app.locals.mongoReady) return getDemoConsultations();
+async function getConsultationRows(req, session) {
+  if (!req.app.locals.mongoReady) {
+    const rows = getDemoConsultations();
+    if (session?.role !== "user") return rows;
 
-  const rows = await Consultation.find().sort({ createdAt: -1 }).limit(12).lean();
+    const customerRows = rows.filter((item) => item.customerEmail === session.email);
+    return customerRows.length ? customerRows : rows;
+  }
+
+  const query = session?.role === "user" ? { customerEmail: session.email } : {};
+  const rows = await Consultation.find(query).sort({ createdAt: -1 }).limit(12).lean();
   return rows.map(toSerializableBooking);
 }
 
@@ -63,9 +80,11 @@ router.get("/user", async (req, res, next) => {
   if (!requireRole(req, res, "user")) return;
 
   try {
-    const [astrologerRows, consultations] = await Promise.all([
+    const session = readAuthSession(req);
+    const [astrologerRows, consultations, wallet] = await Promise.all([
       getAstrologerRows(req),
-      getConsultationRows(req)
+      getConsultationRows(req, session),
+      getWalletForSession(req, session)
     ]);
 
     const recommendations = astrologerRows
@@ -99,12 +118,7 @@ router.get("/user", async (req, res, next) => {
         memberSince: "January 2025",
         savedBirthProfiles: 3
       },
-      wallet: {
-        balance: 1200,
-        rewards: 340,
-        freeMinutes: 12,
-        spendThisMonth: 860
-      },
+      wallet,
       upcoming,
       history,
       savedTools: [
@@ -143,9 +157,10 @@ router.get("/admin", async (req, res, next) => {
   if (!requireRole(req, res, "admin")) return;
 
   try {
+    const session = readAuthSession(req);
     const [astrologerRows, consultations] = await Promise.all([
       getAstrologerRows(req),
-      getConsultationRows(req)
+      getConsultationRows(req, session)
     ]);
 
     const onlineCount = astrologerRows.filter((item) => item.status === "online").length;
@@ -154,7 +169,12 @@ router.get("/admin", async (req, res, next) => {
     const bookingQueue = consultations.slice(0, 6).map(toSerializableBooking);
     const revenueToday = consultations.reduce((total, item) => {
       const astrologer = astrologerRows.find((row) => row.id === item.astrologerId);
-      return total + (astrologer?.pricePerMinute || 18) * Math.max(5, item.etaMinutes || 5);
+      return (
+        total +
+        (item.amountPaid ||
+          item.consultationFee ||
+          (astrologer?.pricePerMinute || 18) * Math.max(5, item.durationMinutes || 5))
+      );
     }, 0);
 
     res.json({

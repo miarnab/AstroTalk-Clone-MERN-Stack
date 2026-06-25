@@ -39,6 +39,12 @@ const demoAccounts = [
 ];
 
 const memoryAccounts = new Map();
+const defaultWallet = {
+  balance: 1200,
+  rewards: 340,
+  freeMinutes: 12,
+  spendThisMonth: 860
+};
 
 function normalize(value = "") {
   return String(value).trim();
@@ -75,6 +81,7 @@ function seedMemoryAccounts() {
   demoAccounts.forEach((account) => {
     memoryAccounts.set(account.email, {
       ...account,
+      wallet: account.role === "user" ? { ...defaultWallet } : undefined,
       passwordHash: hashPassword(account.password),
       createdAt: new Date(),
       updatedAt: new Date()
@@ -98,6 +105,43 @@ function publicUser(account) {
     role: item.role,
     dashboard: profile.dashboard
   };
+}
+
+function walletSnapshot(account) {
+  return {
+    ...defaultWallet,
+    ...(toAccountObject(account)?.wallet || {})
+  };
+}
+
+async function findAccountBySession(req, session) {
+  if (!session?.email) return null;
+
+  if (req.app.locals.mongoReady) {
+    return User.findOne({ email: session.email });
+  }
+
+  seedMemoryAccounts();
+  return memoryAccounts.get(session.email) || null;
+}
+
+async function updateWalletForSession(req, session, updater) {
+  const account = await findAccountBySession(req, session);
+
+  if (!account || account.role !== "user") return null;
+
+  const nextWallet = updater(walletSnapshot(account));
+
+  if (req.app.locals.mongoReady) {
+    account.wallet = nextWallet;
+    await account.save();
+    return walletSnapshot(account);
+  }
+
+  account.wallet = nextWallet;
+  account.updatedAt = new Date();
+  memoryAccounts.set(account.email, account);
+  return walletSnapshot(account);
 }
 
 function createSession(account, message) {
@@ -129,7 +173,8 @@ async function findAccount(req, email) {
 async function createAccount(req, account) {
   const normalizedAccount = {
     ...account,
-    email: normalizeEmail(account.email)
+    email: normalizeEmail(account.email),
+    wallet: account.role === "user" ? { ...defaultWallet } : undefined
   };
 
   if (req.app.locals.mongoReady) {
@@ -183,6 +228,32 @@ export function readAuthSession(req) {
   const header = req.get("authorization") || "";
   const token = header.replace(/^Bearer\s+/i, "").trim();
   return verifyAuthToken(token);
+}
+
+export async function getWalletForSession(req, session) {
+  const account = await findAccountBySession(req, session);
+
+  if (!account || account.role !== "user") return { ...defaultWallet };
+
+  return walletSnapshot(account);
+}
+
+export async function creditWalletForSession(req, session, amount) {
+  const creditAmount = Math.max(0, Number(amount) || 0);
+
+  return updateWalletForSession(req, session, (wallet) => ({
+    ...wallet,
+    balance: wallet.balance + creditAmount
+  }));
+}
+
+export async function recordWalletSpendForSession(req, session, amount) {
+  const spendAmount = Math.max(0, Number(amount) || 0);
+
+  return updateWalletForSession(req, session, (wallet) => ({
+    ...wallet,
+    spendThisMonth: wallet.spendThisMonth + spendAmount
+  }));
 }
 
 export async function register(req, res, next) {

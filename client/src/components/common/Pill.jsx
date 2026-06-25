@@ -1,0 +1,5 @@
+function Pill({ children, tone = "neutral" }) {
+  return <span className={`pill pill-${tone}`}>{children}</span>;
+}
+
+export default Pill;

@@ -56,9 +56,28 @@ export const api = {
         "x-demo-role": session?.user?.role || "admin"
       }
     }),
-  book: (payload) =>
+  book: (payload, session) =>
     request("/api/consultations", {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      },
+      body: JSON.stringify(payload)
+    }),
+  rechargeWallet: (payload, session) =>
+    request("/api/payments/wallet/recharge", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      },
+      body: JSON.stringify(payload)
+    }),
+  verifyPayment: (payload, session) =>
+    request("/api/payments/verify", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      },
       body: JSON.stringify(payload)
     }),
   kundli: (payload) =>

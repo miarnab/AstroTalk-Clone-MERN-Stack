@@ -32,13 +32,29 @@ const userSchema = new mongoose.Schema(
     adminCodeVerified: {
       type: Boolean,
       default: false
+    },
+    wallet: {
+      balance: {
+        type: Number,
+        default: 1200
+      },
+      rewards: {
+        type: Number,
+        default: 340
+      },
+      freeMinutes: {
+        type: Number,
+        default: 12
+      },
+      spendThisMonth: {
+        type: Number,
+        default: 860
+      }
     }
   },
   {
     timestamps: true
   }
 );
-
-userSchema.index({ email: 1 }, { unique: true });
 
 export default mongoose.models.User || mongoose.model("User", userSchema);

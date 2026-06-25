@@ -737,6 +737,7 @@ a {
 .search-field,
 .filter-bar select,
 .booking-form input,
+.booking-form select,
 .booking-form textarea,
 .compact-form input,
 .compact-form select,
@@ -963,13 +964,43 @@ a {
   box-shadow: 0 6px 18px rgba(22, 32, 42, 0.08);
 }
 
+.payment-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px;
+  background: #f8fafb;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.payment-summary span {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.payment-summary strong {
+  white-space: nowrap;
+}
+
 .empty-panel {
   display: grid;
+  gap: 12px;
   min-height: 280px;
   place-items: center;
   padding: 20px;
   color: var(--muted);
   text-align: center;
+}
+
+.empty-panel p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.locked-panel .primary-button {
+  width: 100%;
 }
 
 .success-panel {
@@ -1195,6 +1226,60 @@ a {
   grid-column: 1 / -1;
   width: 100%;
   flex: none;
+}
+
+.wallet-recharge {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.wallet-recharge label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--muted);
+  background: #f8fafb;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.wallet-recharge input {
+  width: 100%;
+  min-width: 0;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.wallet-recharge .primary-button {
+  width: 100%;
+}
+
+.recharge-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.recharge-presets button {
+  min-height: 38px;
+  color: var(--muted);
+  background: #f8fafb;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-weight: 900;
+}
+
+.recharge-presets button.active {
+  color: var(--ink);
+  background: var(--solar);
+  border-color: #e3ad16;
 }
 
 .panel-hero-card div,

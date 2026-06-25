@@ -12,6 +12,7 @@ import authRoutes, { ensureDemoAccounts, signIn } from "./routes/auth.js";
 import catalogRoutes from "./routes/catalog.js";
 import consultationRoutes from "./routes/consultations.js";
 import panelRoutes from "./routes/panels.js";
+import paymentRoutes from "./routes/payments.js";
 import toolRoutes from "./routes/tools.js";
 
 dotenv.config();
@@ -43,6 +44,7 @@ app.use("/api", catalogRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/consultations", consultationRoutes);
 app.use("/api/panels", panelRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use("/api/tools", toolRoutes);
 
 if (existsSync(clientDistPath)) {
