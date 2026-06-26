@@ -1,6 +1,6 @@
 import { ArrowLeft, CircleUserRound, LogOut, Sun, UserCog, WalletCards } from "lucide-react";
 
-function Header({ activePage, session, onHome, onLogout, onOpenPanel, onOpenSignIn }) {
+function Header({ activePage, session, onHome, onLogout, onOpenPanel, onOpenProfile, onOpenSignIn }) {
   return (
     <header className="topbar">
       <a className="brand" href="#top" aria-label="Astrotalk clone home" onClick={onHome}>
@@ -24,6 +24,16 @@ function Header({ activePage, session, onHome, onLogout, onOpenPanel, onOpenSign
         </a>
       </nav>
       <div className="top-actions">
+        {session?.user.role === "user" ? (
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Open customer profile"
+            onClick={onOpenProfile}
+          >
+            <CircleUserRound size={19} />
+          </button>
+        ) : null}
         <button
           className="icon-button"
           type="button"

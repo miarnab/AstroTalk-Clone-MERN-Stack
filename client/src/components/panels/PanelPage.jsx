@@ -1,7 +1,15 @@
 import AdminPanel from "./AdminPanel";
 import UserPanel from "./UserPanel";
 
-function PanelPage({ session, data, status, walletStatus, onRefresh, onWalletRecharge }) {
+function PanelPage({
+  session,
+  data,
+  status,
+  walletStatus,
+  onOpenProfile,
+  onRefresh,
+  onWalletRecharge
+}) {
   if (status.loading && !data) {
     return (
       <main className="panel-page">
@@ -28,6 +36,7 @@ function PanelPage({ session, data, status, walletStatus, onRefresh, onWalletRec
       data={data}
       status={status}
       walletStatus={walletStatus}
+      onOpenProfile={onOpenProfile}
       onRefresh={onRefresh}
       onWalletRecharge={onWalletRecharge}
     />

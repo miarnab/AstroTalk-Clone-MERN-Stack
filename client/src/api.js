@@ -42,6 +42,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  profile: (session) =>
+    request("/api/auth/profile", {
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      }
+    }),
+  updateProfile: (payload, session) =>
+    request("/api/auth/profile", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      },
+      body: JSON.stringify(payload)
+    }),
   userPanel: (session) =>
     request("/api/panels/user", {
       headers: {

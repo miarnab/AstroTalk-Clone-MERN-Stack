@@ -15,7 +15,15 @@ import Pill from "../common/Pill";
 import BookingRow from "./BookingRow";
 import PanelMetric from "./PanelMetric";
 
-function UserPanel({ session, data, status, walletStatus, onRefresh, onWalletRecharge }) {
+function UserPanel({
+  session,
+  data,
+  status,
+  walletStatus,
+  onOpenProfile,
+  onRefresh,
+  onWalletRecharge
+}) {
   const wallet = data.wallet;
   const upcoming = data.upcoming || [];
   const history = data.history || [];
@@ -49,6 +57,10 @@ function UserPanel({ session, data, status, walletStatus, onRefresh, onWalletRec
             <strong>Rs {wallet.balance.toLocaleString("en-IN")}</strong>
             <small>{wallet.freeMinutes} free minutes available</small>
           </div>
+          <button className="secondary-button" type="button" onClick={onOpenProfile}>
+            <CircleUserRound size={18} />
+            Edit profile
+          </button>
           <button className="secondary-button" type="button" onClick={onRefresh} disabled={status.loading}>
             {status.loading ? "Syncing..." : "Refresh"}
           </button>

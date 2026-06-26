@@ -33,6 +33,38 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    profile: {
+      birthDate: {
+        type: String,
+        default: "",
+        trim: true
+      },
+      birthTime: {
+        type: String,
+        default: "",
+        trim: true
+      },
+      place: {
+        type: String,
+        default: "",
+        trim: true
+      },
+      concern: {
+        type: String,
+        default: "",
+        trim: true
+      },
+      gender: {
+        type: String,
+        default: "",
+        trim: true
+      },
+      preferredLanguage: {
+        type: String,
+        default: "",
+        trim: true
+      }
+    },
     wallet: {
       balance: {
         type: Number,

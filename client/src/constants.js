@@ -31,6 +31,18 @@ export const initialBooking = {
   mode: "chat"
 };
 
+export const initialProfile = {
+  name: "",
+  email: "",
+  phone: "",
+  birthDate: "",
+  birthTime: "",
+  place: "",
+  concern: "",
+  gender: "",
+  preferredLanguage: ""
+};
+
 export const initialSignIn = {
   role: "user",
   name: "",

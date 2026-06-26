@@ -3,6 +3,7 @@ import { api } from "./api";
 import {
   initialBooking,
   initialFilters,
+  initialProfile,
   initialSignIn,
   signInModes
 } from "./constants";
@@ -10,7 +11,55 @@ import SignInPage from "./components/auth/SignInPage";
 import HomePage from "./components/home/HomePage";
 import Header from "./components/layout/Header";
 import PanelPage from "./components/panels/PanelPage";
+import ProfilePage from "./components/profile/ProfilePage";
 import { formatRupees, openRazorpayCheckout } from "./utils/razorpay";
+
+function profileFormFromUser(user = {}) {
+  const profile = user.profile || {};
+
+  return {
+    ...initialProfile,
+    name: user.name || "",
+    email: user.email || "",
+    phone: user.phone || "",
+    birthDate: profile.birthDate || "",
+    birthTime: profile.birthTime || "",
+    place: profile.place || "",
+    concern: profile.concern || "",
+    gender: profile.gender || "",
+    preferredLanguage: profile.preferredLanguage || ""
+  };
+}
+
+function bookingDefaultsFromUser(user, mode = "chat", durationMinutes = initialBooking.durationMinutes) {
+  const profile = user?.profile || {};
+
+  return {
+    ...initialBooking,
+    name: user?.name || "",
+    concern: profile.concern || "",
+    birthDate: profile.birthDate || "",
+    birthTime: profile.birthTime || "",
+    place: profile.place || "",
+    durationMinutes,
+    mode
+  };
+}
+
+function profilePayloadFromForm(form) {
+  return {
+    name: form.name,
+    phone: form.phone,
+    profile: {
+      birthDate: form.birthDate,
+      birthTime: form.birthTime,
+      place: form.place,
+      concern: form.concern,
+      gender: form.gender,
+      preferredLanguage: form.preferredLanguage
+    }
+  };
+}
 
 function App() {
   const [astrologers, setAstrologers] = useState([]);
@@ -54,6 +103,8 @@ function App() {
   const [panelData, setPanelData] = useState(null);
   const [panelStatus, setPanelStatus] = useState({ loading: false, error: "" });
   const [walletStatus, setWalletStatus] = useState({ loading: false, error: "", success: "" });
+  const [profileForm, setProfileForm] = useState(initialProfile);
+  const [profileStatus, setProfileStatus] = useState({ loading: false, error: "", success: "" });
 
   useEffect(() => {
     Promise.all([api.filters(), api.stats(), api.services(), api.testimonials()])
@@ -85,7 +136,13 @@ function App() {
     if (!session) {
       setPanelData(null);
       setPanelStatus({ loading: false, error: "" });
+      setProfileForm(initialProfile);
+      setProfileStatus({ loading: false, error: "", success: "" });
       return;
+    }
+
+    if (session.user.role === "user") {
+      setProfileForm(profileFormFromUser(session.user));
     }
 
     loadPanelData(session);
@@ -120,7 +177,7 @@ function App() {
 
   function chooseAstrologer(astrologer, mode) {
     setSelectedAstrologer(astrologer);
-    setBooking({ ...initialBooking, name: session?.user?.name || "", mode });
+    setBooking(bookingDefaultsFromUser(session?.user, mode));
     setBookingResult(null);
     setBookingStatus({ loading: false, error: "" });
   }
@@ -203,6 +260,22 @@ function App() {
   function openSignIn() {
     setReturnToBooking(false);
     setActivePage("signin");
+  }
+
+  function openProfile() {
+    if (!session) {
+      openSignIn();
+      return;
+    }
+
+    if (session.user.role !== "user") {
+      setActivePage("panel");
+      return;
+    }
+
+    setProfileForm(profileFormFromUser(session.user));
+    setProfileStatus({ loading: false, error: "", success: "" });
+    setActivePage("profile");
   }
 
   function openBookingSignIn() {
@@ -294,6 +367,37 @@ function App() {
     }
   }
 
+  function updateProfileField(key, value) {
+    setProfileForm((current) => ({ ...current, [key]: value }));
+    setProfileStatus((current) => ({ ...current, error: "", success: "" }));
+  }
+
+  async function submitProfile(event) {
+    event.preventDefault();
+
+    if (!session) {
+      openSignIn();
+      return;
+    }
+
+    setProfileStatus({ loading: true, error: "", success: "" });
+
+    try {
+      const payload = await api.updateProfile(profilePayloadFromForm(profileForm), session);
+      setSession(payload);
+      setProfileForm(profileFormFromUser(payload.user));
+      setProfileStatus({ loading: false, error: "", success: payload.message });
+
+      if (selectedAstrologer) {
+        setBooking((current) =>
+          bookingDefaultsFromUser(payload.user, current.mode, current.durationMinutes)
+        );
+      }
+    } catch (error) {
+      setProfileStatus({ loading: false, error: error.message, success: "" });
+    }
+  }
+
   async function submitSignIn(event) {
     event.preventDefault();
     setSignInStatus({ loading: true, error: "", success: "" });
@@ -302,6 +406,12 @@ function App() {
       const payload =
         authMode === "register" ? await api.register(signInForm) : await api.signIn(signInForm);
       setSession(payload);
+      setProfileForm(profileFormFromUser(payload.user));
+      if (returnToBooking && selectedAstrologer) {
+        setBooking((current) =>
+          bookingDefaultsFromUser(payload.user, current.mode, current.durationMinutes)
+        );
+      }
       setSignInStatus({ loading: false, error: "", success: payload.message });
       setActivePage(returnToBooking && selectedAstrologer ? "home" : "panel");
       setReturnToBooking(false);
@@ -317,6 +427,8 @@ function App() {
     setPanelData(null);
     setSignInStatus({ loading: false, error: "", success: "" });
     setWalletStatus({ loading: false, error: "", success: "" });
+    setProfileForm(initialProfile);
+    setProfileStatus({ loading: false, error: "", success: "" });
     setReturnToBooking(false);
     setActivePage("home");
   }
@@ -329,6 +441,7 @@ function App() {
         onHome={openHome}
         onLogout={logout}
         onOpenPanel={() => setActivePage("panel")}
+        onOpenProfile={openProfile}
         onOpenSignIn={openSignIn}
       />
 
@@ -354,8 +467,17 @@ function App() {
           data={panelData}
           status={panelStatus}
           walletStatus={walletStatus}
+          onOpenProfile={openProfile}
           onRefresh={() => loadPanelData(session)}
           onWalletRecharge={rechargeWallet}
+        />
+      ) : activePage === "profile" && session?.user.role === "user" ? (
+        <ProfilePage
+          form={profileForm}
+          status={profileStatus}
+          onBack={() => setActivePage("panel")}
+          onChange={updateProfileField}
+          onSubmit={submitProfile}
         />
       ) : (
         <HomePage

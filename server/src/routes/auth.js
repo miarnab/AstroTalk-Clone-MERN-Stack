@@ -25,7 +25,15 @@ const demoAccounts = [
     email: "customer@astrotalk.test",
     phone: "9876543210",
     role: "user",
-    password: "user123"
+    password: "user123",
+    profile: {
+      birthDate: "1996-08-18",
+      birthTime: "07:30",
+      place: "Delhi",
+      concern: "Career growth and family harmony",
+      gender: "Female",
+      preferredLanguage: "Hindi"
+    }
   },
   {
     id: "adm-demo",
@@ -44,6 +52,14 @@ const defaultWallet = {
   rewards: 340,
   freeMinutes: 12,
   spendThisMonth: 860
+};
+const emptyCustomerProfile = {
+  birthDate: "",
+  birthTime: "",
+  place: "",
+  concern: "",
+  gender: "",
+  preferredLanguage: ""
 };
 
 function normalize(value = "") {
@@ -103,7 +119,8 @@ function publicUser(account) {
     email: item.email,
     phone: item.phone,
     role: item.role,
-    dashboard: profile.dashboard
+    dashboard: profile.dashboard,
+    profile: profileSnapshot(item)
   };
 }
 
@@ -111,6 +128,13 @@ function walletSnapshot(account) {
   return {
     ...defaultWallet,
     ...(toAccountObject(account)?.wallet || {})
+  };
+}
+
+function profileSnapshot(account) {
+  return {
+    ...emptyCustomerProfile,
+    ...(toAccountObject(account)?.profile || {})
   };
 }
 
@@ -174,6 +198,7 @@ async function createAccount(req, account) {
   const normalizedAccount = {
     ...account,
     email: normalizeEmail(account.email),
+    profile: account.profile || { ...emptyCustomerProfile },
     wallet: account.role === "user" ? { ...defaultWallet } : undefined
   };
 
@@ -202,6 +227,45 @@ function validateRole(role, res, action) {
   return true;
 }
 
+function readProfilePayload(payload = {}) {
+  const source =
+    payload.profile && typeof payload.profile === "object"
+      ? { ...payload, ...payload.profile }
+      : payload;
+
+  return {
+    birthDate: normalize(source.birthDate),
+    birthTime: normalize(source.birthTime),
+    place: normalize(source.place),
+    concern: normalize(source.concern),
+    gender: normalize(source.gender),
+    preferredLanguage: normalize(source.preferredLanguage)
+  };
+}
+
+async function requireCustomerAccount(req, res) {
+  const session = readAuthSession(req);
+
+  if (!session) {
+    res.status(401).json({ message: "Sign in to manage your customer profile." });
+    return null;
+  }
+
+  if (session.role !== "user") {
+    res.status(403).json({ message: "Only customer accounts can manage consultation profiles." });
+    return null;
+  }
+
+  const account = await findAccountBySession(req, session);
+
+  if (!account) {
+    res.status(404).json({ message: "Customer account not found." });
+    return null;
+  }
+
+  return { account, session };
+}
+
 export async function ensureDemoAccounts(mongoReady) {
   seedMemoryAccounts();
 
@@ -217,6 +281,7 @@ export async function ensureDemoAccounts(mongoReady) {
         email: account.email,
         phone: account.phone,
         role: account.role,
+        profile: account.profile || { ...emptyCustomerProfile },
         adminCodeVerified: Boolean(account.adminCodeVerified),
         passwordHash: hashPassword(account.password)
       });
@@ -362,6 +427,56 @@ export async function signIn(req, res, next) {
   }
 }
 
+export async function getProfile(req, res, next) {
+  try {
+    const result = await requireCustomerAccount(req, res);
+    if (!result) return;
+
+    res.json({
+      user: publicUser(result.account)
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateProfile(req, res, next) {
+  try {
+    const result = await requireCustomerAccount(req, res);
+    if (!result) return;
+
+    const { account } = result;
+    const name = normalize(req.body.name || account.name);
+    const phone = normalize(req.body.phone || account.phone);
+    const profile = readProfilePayload(req.body);
+
+    if (!name || name.length < 2) {
+      return res.status(400).json({ message: "Enter the customer name." });
+    }
+
+    if (!phone || !isValidPhone(phone)) {
+      return res.status(400).json({ message: "Enter a valid phone number." });
+    }
+
+    account.name = name;
+    account.phone = phone;
+    account.profile = profile;
+    account.updatedAt = new Date();
+
+    if (req.app.locals.mongoReady) {
+      await account.save();
+    } else {
+      memoryAccounts.set(account.email, account);
+    }
+
+    res.json(createSession(account, "Customer profile saved."));
+  } catch (error) {
+    next(error);
+  }
+}
+
+router.get("/profile", getProfile);
+router.put("/profile", updateProfile);
 router.post("/register", register);
 router.post("/signin", signIn);
 
