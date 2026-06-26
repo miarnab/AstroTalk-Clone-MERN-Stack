@@ -29,7 +29,10 @@ function BookingPanel({
     : 0;
 
   return (
-    <aside className="booking-panel" aria-label="Booking panel">
+    <aside
+      className={`booking-panel ${selectedAstrologer ? "has-selection" : "is-empty"}`}
+      aria-label="Booking panel"
+    >
       <div className="booking-head">
         <div>
           <span className="eyebrow">

@@ -180,6 +180,15 @@ function App() {
     setBooking(bookingDefaultsFromUser(session?.user, mode));
     setBookingResult(null);
     setBookingStatus({ loading: false, error: "" });
+
+    if (typeof window !== "undefined" && window.innerWidth <= 720) {
+      window.requestAnimationFrame(() => {
+        document.querySelector(".booking-panel.has-selection")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      });
+    }
   }
 
   function clearSelectedAstrologer() {
