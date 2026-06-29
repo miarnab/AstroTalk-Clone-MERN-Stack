@@ -7,6 +7,7 @@ import {
   MessageCircle,
   Phone,
   Send,
+  Video,
   X
 } from "lucide-react";
 import { formatRupees } from "../../utils/razorpay";
@@ -20,6 +21,7 @@ function BookingPanel({
   onBookingChange,
   onClear,
   onModeChange,
+  onOpenSession,
   onRequireSignIn,
   onSubmit
 }) {
@@ -166,12 +168,20 @@ function BookingPanel({
           <div>
             <strong>{bookingResult.bookingId}</strong>
             <span>
-              {bookingResult.mode} with {bookingResult.astrologerName} starts in about{" "}
-              {bookingResult.etaMinutes} minutes.
+              {bookingResult.mode === "call" ? "Video call" : "Chat"} with{" "}
+              {bookingResult.astrologerName} is ready for {bookingResult.durationMinutes} minutes.
             </span>
             {bookingResult.amountPaid ? (
               <span>Paid {formatRupees(bookingResult.amountPaid)} through Razorpay.</span>
             ) : null}
+            <button
+              className="secondary-button session-start-button"
+              type="button"
+              onClick={() => onOpenSession?.(bookingResult)}
+            >
+              {bookingResult.mode === "call" ? <Video size={18} /> : <MessageCircle size={18} />}
+              Join session
+            </button>
           </div>
         </div>
       ) : null}

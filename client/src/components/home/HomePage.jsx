@@ -30,6 +30,7 @@ function HomePage({
   onFilterChange,
   onKundliChange,
   onMatchChange,
+  onOpenSession,
   onRequireSignIn,
   onSelectAstrologer,
   onSelectedSignChange,
@@ -63,6 +64,7 @@ function HomePage({
         onBookingModeChange={onBookingModeChange}
         onClearAstrologer={onClearAstrologer}
         onFilterChange={onFilterChange}
+        onOpenSession={onOpenSession}
         onRequireSignIn={onRequireSignIn}
         onSelectAstrologer={onSelectAstrologer}
         onSubmitBooking={onSubmitBooking}

@@ -41,6 +41,8 @@ function toSerializableBooking(booking) {
     razorpayOrderId: booking.razorpayOrderId,
     razorpayPaymentId: booking.razorpayPaymentId,
     paidAt: booking.paidAt?.toISOString?.() || booking.paidAt || null,
+    sessionStartedAt: booking.sessionStartedAt?.toISOString?.() || booking.sessionStartedAt || null,
+    sessionEndsAt: booking.sessionEndsAt?.toISOString?.() || booking.sessionEndsAt || null,
     birthDate: booking.birthDate,
     birthTime: booking.birthTime,
     place: booking.place,
@@ -168,11 +170,13 @@ router.get("/admin", async (req, res, next) => {
     const offlineCount = astrologerRows.filter((item) => item.status === "offline").length;
     const bookingQueue = consultations.slice(0, 6).map(toSerializableBooking);
     const revenueToday = consultations.reduce((total, item) => {
+      if (item.paymentStatus && item.paymentStatus !== "paid") return total;
+
       const astrologer = astrologerRows.find((row) => row.id === item.astrologerId);
       return (
         total +
-        (item.amountPaid ||
-          item.consultationFee ||
+        (item.amountPaid ??
+          item.consultationFee ??
           (astrologer?.pricePerMinute || 18) * Math.max(5, item.durationMinutes || 5))
       );
     }, 0);

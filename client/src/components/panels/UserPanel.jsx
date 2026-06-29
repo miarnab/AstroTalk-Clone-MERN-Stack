@@ -20,6 +20,7 @@ function UserPanel({
   data,
   status,
   walletStatus,
+  onOpenSession,
   onOpenProfile,
   onRefresh,
   onWalletRecharge
@@ -142,7 +143,13 @@ function UserPanel({
           </div>
           <div className="panel-list">
             {upcoming.length ? (
-              upcoming.map((booking) => <BookingRow key={booking.bookingId} booking={booking} />)
+              upcoming.map((booking) => (
+                <BookingRow
+                  key={booking.bookingId}
+                  booking={booking}
+                  onOpenSession={onOpenSession}
+                />
+              ))
             ) : (
               <div className="empty-panel">No upcoming consultation is queued.</div>
             )}
@@ -208,7 +215,11 @@ function UserPanel({
           </div>
           <div className="panel-list">
             {history.map((booking) => (
-              <BookingRow key={`${booking.bookingId}-history`} booking={booking} />
+              <BookingRow
+                key={`${booking.bookingId}-history`}
+                booking={booking}
+                onOpenSession={onOpenSession}
+              />
             ))}
           </div>
         </article>

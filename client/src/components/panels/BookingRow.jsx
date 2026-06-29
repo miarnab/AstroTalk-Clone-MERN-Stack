@@ -2,7 +2,9 @@ import { MessageCircle, Phone } from "lucide-react";
 import Pill from "../common/Pill";
 import { formatPanelDate } from "../../utils/formatters";
 
-function BookingRow({ booking }) {
+function BookingRow({ booking, onOpenSession }) {
+  const canJoin = booking.status !== "completed" && typeof onOpenSession === "function";
+
   return (
     <article className="panel-list-row">
       <span className="panel-row-icon">
@@ -16,6 +18,12 @@ function BookingRow({ booking }) {
       <div className="panel-row-meta">
         <Pill tone={booking.status === "completed" ? "teal" : "online"}>{booking.status}</Pill>
         <span>{formatPanelDate(booking.createdAt)}</span>
+        {canJoin ? (
+          <button className="row-action-button" type="button" onClick={() => onOpenSession(booking)}>
+            {booking.mode === "call" ? <Phone size={15} /> : <MessageCircle size={15} />}
+            Join
+          </button>
+        ) : null}
       </div>
     </article>
   );

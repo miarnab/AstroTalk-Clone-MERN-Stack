@@ -1,6 +1,6 @@
 import { Router } from "express";
 import Consultation from "../models/Consultation.js";
-import { rememberDemoConsultation } from "../data/bookings.js";
+import { getDemoConsultations, rememberDemoConsultation } from "../data/bookings.js";
 import {
   createPaymentOrder,
   findPaymentOrder,
@@ -53,6 +53,8 @@ function toSerializableBooking(booking) {
     razorpayOrderId: item.razorpayOrderId,
     razorpayPaymentId: item.razorpayPaymentId,
     paidAt: item.paidAt?.toISOString?.() || item.paidAt || null,
+    sessionStartedAt: item.sessionStartedAt?.toISOString?.() || item.sessionStartedAt || null,
+    sessionEndsAt: item.sessionEndsAt?.toISOString?.() || item.sessionEndsAt || null,
     birthDate: item.birthDate,
     birthTime: item.birthTime,
     place: item.place,
@@ -63,25 +65,72 @@ function toSerializableBooking(booking) {
   };
 }
 
-async function createPaidConsultation(req, order, paymentId) {
-  const paidAt = new Date();
+function sessionEndFrom(startedAt, durationMinutes) {
+  const durationMs = Math.max(1, Number(durationMinutes) || 5) * 60 * 1000;
+  return new Date(startedAt.getTime() + durationMs);
+}
+
+async function createConsultationFromOrder(req, order, { paymentStatus, paymentId = null }) {
+  const startedAt = new Date();
   const booking = {
     ...order.consultation,
-    paymentStatus: "paid",
+    paymentStatus,
     razorpayOrderId: order.razorpayOrderId,
     razorpayPaymentId: paymentId,
-    paidAt
+    amountPaid: paymentStatus === "paid" ? order.amount : 0,
+    paidAt: paymentStatus === "paid" ? startedAt : null,
+    sessionStartedAt: startedAt,
+    sessionEndsAt: sessionEndFrom(startedAt, order.consultation?.durationMinutes)
   };
 
   if (req.app.locals.mongoReady) {
     const existing = await Consultation.findOne({ razorpayOrderId: order.razorpayOrderId });
-    if (existing) return toSerializableBooking(existing);
+    if (existing) {
+      if (paymentStatus === "paid" && existing.paymentStatus !== "paid") {
+        existing.paymentStatus = "paid";
+        existing.amountPaid = order.amount;
+        existing.razorpayPaymentId = paymentId;
+        existing.paidAt = startedAt;
+        await existing.save();
+      }
+
+      return toSerializableBooking(existing);
+    }
 
     const created = await Consultation.create(booking);
     return toSerializableBooking(created);
   }
 
+  const existing = getDemoConsultations().find(
+    (item) => item.razorpayOrderId === order.razorpayOrderId
+  );
+
+  if (existing) {
+    if (paymentStatus === "paid" && existing.paymentStatus !== "paid") {
+      existing.paymentStatus = "paid";
+      existing.amountPaid = order.amount;
+      existing.razorpayPaymentId = paymentId;
+      existing.paidAt = startedAt.toISOString();
+      existing.updatedAt = startedAt.toISOString();
+    }
+
+    return existing;
+  }
+
   return rememberDemoConsultation(booking);
+}
+
+async function createPaidConsultation(req, order, paymentId) {
+  return createConsultationFromOrder(req, order, {
+    paymentStatus: "paid",
+    paymentId
+  });
+}
+
+async function createFailedConsultation(req, order) {
+  return createConsultationFromOrder(req, order, {
+    paymentStatus: "failed"
+  });
 }
 
 function readAmount(value) {
@@ -120,6 +169,52 @@ router.post("/wallet/recharge", async (req, res, next) => {
       recharge: {
         amount
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/consultations/failed", async (req, res, next) => {
+  const session = requireCustomer(req, res);
+  if (!session) return;
+
+  try {
+    const razorpayOrderId = String(req.body.razorpayOrderId || "").trim();
+
+    if (!razorpayOrderId) {
+      return res.status(400).json({ message: "Razorpay order id is required." });
+    }
+
+    const order = await findPaymentOrder(req, razorpayOrderId);
+
+    if (!order) {
+      return res.status(404).json({ message: "Payment order was not found." });
+    }
+
+    if (order.userEmail !== session.email) {
+      return res.status(403).json({ message: "This payment order belongs to another account." });
+    }
+
+    if (order.purpose !== "consultation" || !order.consultation) {
+      return res.status(400).json({ message: "Only consultation payments can start a session." });
+    }
+
+    if (order.status === "paid") {
+      return res.json({
+        message: "Payment was already verified. Consultation session opened.",
+        purpose: order.purpose,
+        ...(order.result || {})
+      });
+    }
+
+    await markPaymentOrderFailed(req, razorpayOrderId);
+    const booking = await createFailedConsultation(req, order);
+
+    res.json({
+      message: "Payment failed. Consultation session opened.",
+      purpose: order.purpose,
+      booking
     });
   } catch (error) {
     next(error);

@@ -13,7 +13,7 @@ import Pill from "../common/Pill";
 import BookingRow from "./BookingRow";
 import PanelMetric from "./PanelMetric";
 
-function AdminPanel({ session, data, status, onRefresh }) {
+function AdminPanel({ session, data, status, onOpenSession, onRefresh }) {
   const metricIcons = [
     <WalletCards size={21} />,
     <CalendarDays size={21} />,
@@ -76,7 +76,11 @@ function AdminPanel({ session, data, status, onRefresh }) {
           </div>
           <div className="panel-list">
             {data.bookingQueue.map((booking) => (
-              <BookingRow key={booking.bookingId} booking={booking} />
+              <BookingRow
+                key={booking.bookingId}
+                booking={booking}
+                onOpenSession={onOpenSession}
+              />
             ))}
           </div>
         </article>

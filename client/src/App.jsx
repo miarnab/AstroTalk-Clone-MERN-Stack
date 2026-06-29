@@ -12,6 +12,7 @@ import HomePage from "./components/home/HomePage";
 import Header from "./components/layout/Header";
 import PanelPage from "./components/panels/PanelPage";
 import ProfilePage from "./components/profile/ProfilePage";
+import ConsultationSession from "./components/session/ConsultationSession";
 import { formatRupees, openRazorpayCheckout } from "./utils/razorpay";
 
 function profileFormFromUser(user = {}) {
@@ -105,6 +106,7 @@ function App() {
   const [walletStatus, setWalletStatus] = useState({ loading: false, error: "", success: "" });
   const [profileForm, setProfileForm] = useState(initialProfile);
   const [profileStatus, setProfileStatus] = useState({ loading: false, error: "", success: "" });
+  const [activeConsultation, setActiveConsultation] = useState(null);
 
   useEffect(() => {
     Promise.all([api.filters(), api.stats(), api.services(), api.testimonials()])
@@ -230,11 +232,29 @@ function App() {
         },
         session
       );
-      const confirmation = await collectPayment(
-        paymentOrder,
-        `${booking.mode} consultation with ${selectedAstrologer.name}`
-      );
+
+      let confirmation;
+
+      try {
+        confirmation = await collectPayment(
+          paymentOrder,
+          `${booking.mode} consultation with ${selectedAstrologer.name}`
+        );
+      } catch (paymentError) {
+        if (!paymentOrder?.order?.id) throw paymentError;
+
+        confirmation = await api.openFailedConsultation(
+          {
+            razorpayOrderId: paymentOrder.order.id,
+            reason: paymentError.message
+          },
+          session
+        );
+      }
+
       setBookingResult(confirmation.booking);
+      setActiveConsultation(confirmation.booking);
+      setActivePage("session");
       setBookingStatus({ loading: false, error: "" });
       loadPanelData(session);
     } catch (error) {
@@ -264,6 +284,21 @@ function App() {
 
   function openHome() {
     setActivePage("home");
+  }
+
+  function openConsultationSession(consultation) {
+    if (!consultation) return;
+    setActiveConsultation(consultation);
+    setActivePage("session");
+  }
+
+  function closeConsultationSession() {
+    setActiveConsultation(null);
+    setActivePage(session ? "panel" : "home");
+
+    if (session) {
+      loadPanelData(session);
+    }
   }
 
   function openSignIn() {
@@ -434,6 +469,7 @@ function App() {
   function logout() {
     setSession(null);
     setPanelData(null);
+    setActiveConsultation(null);
     setSignInStatus({ loading: false, error: "", success: "" });
     setWalletStatus({ loading: false, error: "", success: "" });
     setProfileForm(initialProfile);
@@ -470,12 +506,19 @@ function App() {
           onSubmit={submitSignIn}
           onTogglePassword={() => setShowPassword((current) => !current)}
         />
+      ) : activePage === "session" && session ? (
+        <ConsultationSession
+          booking={activeConsultation || bookingResult}
+          session={session}
+          onBack={closeConsultationSession}
+        />
       ) : activePage === "panel" && session ? (
         <PanelPage
           session={session}
           data={panelData}
           status={panelStatus}
           walletStatus={walletStatus}
+          onOpenSession={openConsultationSession}
           onOpenProfile={openProfile}
           onRefresh={() => loadPanelData(session)}
           onWalletRecharge={rechargeWallet}
@@ -515,6 +558,7 @@ function App() {
           onFilterChange={updateFilter}
           onKundliChange={updateKundliField}
           onMatchChange={updateMatchField}
+          onOpenSession={openConsultationSession}
           onRequireSignIn={openBookingSignIn}
           onSelectAstrologer={chooseAstrologer}
           onSelectedSignChange={setSelectedSign}

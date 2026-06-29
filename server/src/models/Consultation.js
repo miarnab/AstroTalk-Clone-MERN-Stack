@@ -18,11 +18,32 @@ const consultationSchema = new mongoose.Schema(
     razorpayOrderId: String,
     razorpayPaymentId: String,
     paidAt: Date,
+    sessionStartedAt: Date,
+    sessionEndsAt: Date,
     birthDate: String,
     birthTime: String,
     place: String,
     etaMinutes: Number,
-    status: { type: String, default: "confirmed" }
+    status: { type: String, default: "confirmed" },
+    chatMessages: [
+      {
+        id: String,
+        senderId: String,
+        senderRole: String,
+        senderName: String,
+        body: String,
+        createdAt: Date
+      }
+    ],
+    callSignals: [
+      {
+        id: String,
+        senderRole: String,
+        type: { type: String },
+        data: mongoose.Schema.Types.Mixed,
+        createdAt: Date
+      }
+    ]
   },
   { timestamps: true }
 );

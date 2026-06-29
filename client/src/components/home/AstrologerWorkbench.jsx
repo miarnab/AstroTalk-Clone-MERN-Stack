@@ -17,6 +17,7 @@ function AstrologerWorkbench({
   onBookingModeChange,
   onClearAstrologer,
   onFilterChange,
+  onOpenSession,
   onRequireSignIn,
   onSelectAstrologer,
   onSubmitBooking
@@ -119,6 +120,7 @@ function AstrologerWorkbench({
           onBookingChange={onBookingChange}
           onClear={onClearAstrologer}
           onModeChange={onBookingModeChange}
+          onOpenSession={onOpenSession}
           onRequireSignIn={onRequireSignIn}
           onSubmit={onSubmitBooking}
         />

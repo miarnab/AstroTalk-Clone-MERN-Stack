@@ -6,6 +6,7 @@ function PanelPage({
   data,
   status,
   walletStatus,
+  onOpenSession,
   onOpenProfile,
   onRefresh,
   onWalletRecharge
@@ -29,13 +30,20 @@ function PanelPage({
   if (!data) return null;
 
   return session.user.role === "admin" ? (
-    <AdminPanel session={session} data={data} status={status} onRefresh={onRefresh} />
+    <AdminPanel
+      session={session}
+      data={data}
+      status={status}
+      onOpenSession={onOpenSession}
+      onRefresh={onRefresh}
+    />
   ) : (
     <UserPanel
       session={session}
       data={data}
       status={status}
       walletStatus={walletStatus}
+      onOpenSession={onOpenSession}
       onOpenProfile={onOpenProfile}
       onRefresh={onRefresh}
       onWalletRecharge={onWalletRecharge}

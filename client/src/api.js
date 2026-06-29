@@ -78,6 +78,34 @@ export const api = {
       },
       body: JSON.stringify(payload)
     }),
+  consultationSession: (bookingId, session) =>
+    request(`/api/consultations/${encodeURIComponent(bookingId)}/session`, {
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      }
+    }),
+  sendConsultationMessage: (bookingId, payload, session) =>
+    request(`/api/consultations/${encodeURIComponent(bookingId)}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      },
+      body: JSON.stringify(payload)
+    }),
+  consultationSignals: (bookingId, session) =>
+    request(`/api/consultations/${encodeURIComponent(bookingId)}/signals`, {
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      }
+    }),
+  sendConsultationSignal: (bookingId, payload, session) =>
+    request(`/api/consultations/${encodeURIComponent(bookingId)}/signals`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      },
+      body: JSON.stringify(payload)
+    }),
   rechargeWallet: (payload, session) =>
     request("/api/payments/wallet/recharge", {
       method: "POST",
@@ -88,6 +116,14 @@ export const api = {
     }),
   verifyPayment: (payload, session) =>
     request("/api/payments/verify", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
+      },
+      body: JSON.stringify(payload)
+    }),
+  openFailedConsultation: (payload, session) =>
+    request("/api/payments/consultations/failed", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session?.token || ""}`
