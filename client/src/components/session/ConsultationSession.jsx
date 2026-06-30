@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -33,6 +33,28 @@ function formatDuration(totalSeconds = 0) {
 function counterpartLabel(booking, participant) {
   if (participant?.role === "astrologer") return booking?.customerName || "Customer";
   return booking?.astrologerName || "Astrologer";
+}
+
+function videoParticipantLabels(booking, participant) {
+  const customerName = booking?.customerName || "Customer";
+  const astrologerName = booking?.astrologerName || "Astrologer";
+  const localIsAstrologer = participant?.role === "astrologer";
+
+  return {
+    local: {
+      role: localIsAstrologer ? "Astrologer" : "Customer",
+      name: localIsAstrologer ? astrologerName : customerName
+    },
+    remote: {
+      role: localIsAstrologer ? "Customer" : "Astrologer",
+      name: localIsAstrologer ? customerName : astrologerName
+    }
+  };
+}
+
+function attachVideoStream(videoElement, stream) {
+  if (!videoElement || !stream || videoElement.srcObject === stream) return;
+  videoElement.srcObject = stream;
 }
 
 function ChatRoom({
@@ -118,15 +140,30 @@ function VideoCallRoom({ booking, ended, participant, session }) {
   const [mediaError, setMediaError] = useState("");
   const [micOn, setMicOn] = useState(true);
   const [remoteConnected, setRemoteConnected] = useState(false);
+  const [remoteVideoOn, setRemoteVideoOn] = useState(false);
   const localStreamRef = useRef(null);
   const localVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
   const processedSignalsRef = useRef(new Set());
+  const remoteStreamRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
   const remoteName = counterpartLabel(booking, participant);
+  const participantLabels = videoParticipantLabels(booking, participant);
   const bookingId = booking?.bookingId;
+  const localVideoLabel = `${participantLabels.local.role}: ${participantLabels.local.name}`;
+  const remoteVideoLabel = `${participantLabels.remote.role}: ${participantLabels.remote.name}`;
+
+  const setLocalVideoNode = useCallback((node) => {
+    localVideoRef.current = node;
+    attachVideoStream(node, localStreamRef.current);
+  }, []);
+
+  const setRemoteVideoNode = useCallback((node) => {
+    remoteVideoRef.current = node;
+    attachVideoStream(node, remoteStreamRef.current);
+  }, []);
 
   function closeLocalMedia() {
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -142,6 +179,8 @@ function VideoCallRoom({ booking, ended, participant, session }) {
     peerConnectionRef.current = null;
     pendingCandidatesRef.current = [];
     setRemoteConnected(false);
+    setRemoteVideoOn(false);
+    remoteStreamRef.current = null;
 
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
@@ -241,6 +280,7 @@ function VideoCallRoom({ booking, ended, participant, session }) {
     if (signal.type === "leave") {
       setCallStatus(`${remoteName} left the call`);
       setRemoteConnected(false);
+      setRemoteVideoOn(false);
     }
   }
 
@@ -257,8 +297,10 @@ function VideoCallRoom({ booking, ended, participant, session }) {
 
     peerConnection.ontrack = (event) => {
       const [remoteStream] = event.streams;
-      if (remoteVideoRef.current && remoteStream) {
-        remoteVideoRef.current.srcObject = remoteStream;
+      if (remoteStream) {
+        remoteStreamRef.current = remoteStream;
+        attachVideoStream(remoteVideoRef.current, remoteStream);
+        setRemoteVideoOn(true);
       }
       setRemoteConnected(true);
       setCallStatus(`Connected with ${remoteName}`);
@@ -272,6 +314,7 @@ function VideoCallRoom({ booking, ended, participant, session }) {
 
       if (["disconnected", "failed", "closed"].includes(peerConnection.connectionState)) {
         setRemoteConnected(false);
+        setRemoteVideoOn(false);
       }
     };
 
@@ -298,9 +341,7 @@ function VideoCallRoom({ booking, ended, participant, session }) {
 
       stream.getTracks().forEach((track) => peerConnection.addTrack(track, stream));
 
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      attachVideoStream(localVideoRef.current, stream);
 
       setJoined(true);
       setMicOn(true);
@@ -383,26 +424,28 @@ function VideoCallRoom({ booking, ended, participant, session }) {
 
       <div className="video-grid">
         <div className="video-tile remote-video">
-          <video ref={remoteVideoRef} autoPlay playsInline />
-          {!remoteConnected ? (
+          <video ref={setRemoteVideoNode} autoPlay playsInline />
+          {!remoteVideoOn ? (
             <div className="video-placeholder">
               <CircleUserRound size={52} />
-              <strong>{remoteName}</strong>
+              <strong>{participantLabels.remote.role}</strong>
+              <small>{participantLabels.remote.name}</small>
               <span>{callStatus}</span>
             </div>
           ) : null}
-          <span className="video-label">{remoteName}</span>
+          <span className="video-label">{remoteVideoLabel}</span>
         </div>
 
         <div className="video-tile local-video">
-          <video ref={localVideoRef} autoPlay muted playsInline />
+          <video ref={setLocalVideoNode} autoPlay muted playsInline />
           {!joined || !cameraOn ? (
             <div className="video-placeholder compact">
               <CircleUserRound size={34} />
-              <strong>You</strong>
+              <strong>{participantLabels.local.role}</strong>
+              <small>{participantLabels.local.name}</small>
             </div>
           ) : null}
-          <span className="video-label">You</span>
+          <span className="video-label">{localVideoLabel} (You)</span>
         </div>
       </div>
 
