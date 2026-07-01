@@ -1,6 +1,6 @@
 import { Router } from "express";
-import Astrologer from "../models/Astrologer.js";
-import { astrologers, horoscopes, services, stats, testimonials } from "../data/seed.js";
+import { horoscopes, services, testimonials } from "../data/seed.js";
+import { listAstrologerProfiles } from "./auth.js";
 
 const router = Router();
 
@@ -52,17 +52,35 @@ function applyFilters(rows, query) {
 }
 
 async function getAstrologers(req) {
-  if (!req.app.locals.mongoReady) return astrologers;
-  const rows = await Astrologer.find().sort({ rating: -1 }).lean();
-  return rows.map(({ _id, __v, ...item }) => item);
+  return listAstrologerProfiles(req);
+}
+
+function buildStats(rows) {
+  const onlineCount = rows.filter((item) => item.status === "online").length;
+  const languageCount = new Set(rows.flatMap((item) => item.languages || [])).size;
+  const averageRating =
+    rows.length > 0
+      ? (rows.reduce((sum, item) => sum + (Number(item.rating) || 0), 0) / rows.length).toFixed(1)
+      : "New";
+
+  return [
+    { label: "Astrologers", value: String(rows.length) },
+    { label: "Live now", value: String(onlineCount) },
+    { label: "Avg. rating", value: averageRating },
+    { label: "Languages", value: String(languageCount) }
+  ];
 }
 
 router.get("/health", (_req, res) => {
   res.json({ ok: true, service: "astrotalk-clone-api" });
 });
 
-router.get("/stats", (_req, res) => {
-  res.json(stats);
+router.get("/stats", async (req, res, next) => {
+  try {
+    res.json(buildStats(await getAstrologers(req)));
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get("/services", (_req, res) => {

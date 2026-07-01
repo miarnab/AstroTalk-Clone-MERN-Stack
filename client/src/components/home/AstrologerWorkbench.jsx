@@ -100,6 +100,11 @@ function AstrologerWorkbench({
         <div className="advisor-grid">
           {status.loading ? (
             <div className="loading-card">Loading astrologers...</div>
+          ) : astrologers.length === 0 ? (
+            <div className="empty-panel advisor-empty">
+              No astrologer profiles are listed yet. Register as an astrologer to publish the first
+              profile.
+            </div>
           ) : (
             astrologers.map((astrologer) => (
               <AdvisorCard

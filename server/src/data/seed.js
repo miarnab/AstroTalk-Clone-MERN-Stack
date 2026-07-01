@@ -1,102 +1,22 @@
 export const stats = [
-  { label: "Astrologers", value: "325+" },
-  { label: "Daily chats", value: "18k" },
-  { label: "Avg. rating", value: "4.8" },
-  { label: "Languages", value: "12" }
+  { label: "Astrologers", value: "Open" },
+  { label: "Daily chats", value: "Live" },
+  { label: "Avg. rating", value: "New" },
+  { label: "Languages", value: "Many" }
 ];
 
-export const astrologers = [
-  {
-    id: "astro-isha",
-    name: "Isha Sharma",
-    title: "Vedic astrologer",
-    specialties: ["Love", "Career", "Kundli"],
-    languages: ["Hindi", "English"],
-    experience: 12,
-    rating: 4.9,
-    orders: 18420,
-    pricePerMinute: 18,
-    modes: ["chat", "call"],
-    status: "online",
-    responseTime: "1 min",
-    accent: "#f4b400"
-  },
-  {
-    id: "astro-neeraj",
-    name: "Neeraj Vyas",
-    title: "Numerology expert",
-    specialties: ["Numerology", "Business", "Finance"],
-    languages: ["Hindi", "Gujarati"],
-    experience: 9,
-    rating: 4.8,
-    orders: 12980,
-    pricePerMinute: 15,
-    modes: ["chat"],
-    status: "online",
-    responseTime: "2 min",
-    accent: "#188b8b"
-  },
-  {
-    id: "astro-radhika",
-    name: "Radhika Menon",
-    title: "Tarot and relationship guide",
-    specialties: ["Tarot", "Love", "Marriage"],
-    languages: ["English", "Malayalam"],
-    experience: 7,
-    rating: 4.7,
-    orders: 9760,
-    pricePerMinute: 12,
-    modes: ["chat", "call"],
-    status: "busy",
-    responseTime: "7 min",
-    accent: "#e85d75"
-  },
-  {
-    id: "astro-abhay",
-    name: "Abhay Rao",
-    title: "KP and Vastu consultant",
-    specialties: ["Vastu", "Career", "Property"],
-    languages: ["Hindi", "Marathi"],
-    experience: 16,
-    rating: 4.9,
-    orders: 22340,
-    pricePerMinute: 25,
-    modes: ["call"],
-    status: "online",
-    responseTime: "1 min",
-    accent: "#5661d9"
-  },
-  {
-    id: "astro-farah",
-    name: "Farah Khan",
-    title: "Life path coach",
-    specialties: ["Career", "Education", "Finance"],
-    languages: ["English", "Urdu"],
-    experience: 10,
-    rating: 4.8,
-    orders: 11120,
-    pricePerMinute: 20,
-    modes: ["chat", "call"],
-    status: "online",
-    responseTime: "3 min",
-    accent: "#2d9b68"
-  },
-  {
-    id: "astro-dev",
-    name: "Dev Trivedi",
-    title: "Marriage and dosha specialist",
-    specialties: ["Marriage", "Kundli", "Remedies"],
-    languages: ["Hindi", "English", "Bengali"],
-    experience: 14,
-    rating: 4.9,
-    orders: 19870,
-    pricePerMinute: 22,
-    modes: ["chat", "call"],
-    status: "offline",
-    responseTime: "22 min",
-    accent: "#d76a03"
-  }
-];
+export const knownSeedData = {
+  astrologerIds: [
+    "astro-isha",
+    "astro-neeraj",
+    "astro-radhika",
+    "astro-abhay",
+    "astro-farah",
+    "astro-dev"
+  ],
+  userEmails: ["customer@astrotalk.test", "admin@astrotalk.test"],
+  bookingIds: ["AST-DEMO-2401", "AST-DEMO-1832", "AST-DEMO-9914"]
+};
 
 export const services = [
   {

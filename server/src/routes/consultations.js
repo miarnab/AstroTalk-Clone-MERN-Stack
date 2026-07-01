@@ -1,10 +1,8 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
-import Astrologer from "../models/Astrologer.js";
 import Consultation from "../models/Consultation.js";
-import { astrologers } from "../data/seed.js";
-import { getDemoConsultations } from "../data/bookings.js";
-import { readAuthSession } from "./auth.js";
+import { getConsultations } from "../data/bookings.js";
+import { findAstrologerByPublicId, getAstrologerForSession, readAuthSession } from "./auth.js";
 import { createPaymentOrder, publicCheckoutOrder } from "../services/payments.js";
 
 const router = Router();
@@ -23,11 +21,7 @@ function normalizeDuration(value) {
 }
 
 async function findAstrologer(req, astrologerId) {
-  if (req.app.locals.mongoReady) {
-    return Astrologer.findOne({ id: astrologerId }).lean();
-  }
-
-  return astrologers.find((item) => item.id === astrologerId);
+  return findAstrologerByPublicId(req, astrologerId);
 }
 
 function toDate(value) {
@@ -128,10 +122,10 @@ async function findConsultation(req, bookingId) {
     return Consultation.findOne({ bookingId });
   }
 
-  return getDemoConsultations().find((item) => item.bookingId === bookingId) || null;
+  return getConsultations().find((item) => item.bookingId === bookingId) || null;
 }
 
-function readParticipant(req, res, booking) {
+async function readParticipant(req, res, booking) {
   const session = readAuthSession(req);
 
   if (!session) {
@@ -141,16 +135,20 @@ function readParticipant(req, res, booking) {
 
   const isCustomer =
     session.role === "user" && (!booking.customerEmail || booking.customerEmail === session.email);
+  const astrologerProfile =
+    session.role === "astrologer" ? await getAstrologerForSession(req, session) : null;
+  const isAssignedAstrologer =
+    session.role === "astrologer" && astrologerProfile?.id === booking.astrologerId;
   const isAstrologerDesk = session.role === "admin";
 
-  if (!isCustomer && !isAstrologerDesk) {
+  if (!isCustomer && !isAssignedAstrologer && !isAstrologerDesk) {
     res.status(403).json({ message: "This consultation session belongs to another account." });
     return null;
   }
 
   return {
     ...session,
-    participantRole: isAstrologerDesk ? "astrologer" : "customer"
+    participantRole: isCustomer ? "customer" : "astrologer"
   };
 }
 
@@ -293,7 +291,7 @@ router.get("/:bookingId/session", async (req, res, next) => {
       return res.status(404).json({ message: "Consultation booking was not found." });
     }
 
-    const participant = readParticipant(req, res, booking);
+    const participant = await readParticipant(req, res, booking);
     if (!participant) return;
 
     res.json(await buildSessionPayload(req, booking, participant));
@@ -310,7 +308,7 @@ router.post("/:bookingId/messages", async (req, res, next) => {
       return res.status(404).json({ message: "Consultation booking was not found." });
     }
 
-    const participant = readParticipant(req, res, booking);
+    const participant = await readParticipant(req, res, booking);
     if (!participant) return;
 
     if (booking.mode !== "chat") {
@@ -358,7 +356,7 @@ router.get("/:bookingId/signals", async (req, res, next) => {
       return res.status(404).json({ message: "Consultation booking was not found." });
     }
 
-    const participant = readParticipant(req, res, booking);
+    const participant = await readParticipant(req, res, booking);
     if (!participant) return;
 
     if (booking.mode !== "call") {
@@ -385,7 +383,7 @@ router.post("/:bookingId/signals", async (req, res, next) => {
       return res.status(404).json({ message: "Consultation booking was not found." });
     }
 
-    const participant = readParticipant(req, res, booking);
+    const participant = await readParticipant(req, res, booking);
     if (!participant) return;
 
     if (booking.mode !== "call") {

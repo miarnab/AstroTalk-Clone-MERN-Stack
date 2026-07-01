@@ -1,97 +1,128 @@
 import { Router } from "express";
-import Astrologer from "../models/Astrologer.js";
 import Consultation from "../models/Consultation.js";
-import { getDemoConsultations } from "../data/bookings.js";
-import { astrologers, services } from "../data/seed.js";
-import { getWalletForSession, readAuthSession } from "./auth.js";
+import { getConsultations } from "../data/bookings.js";
+import { services } from "../data/seed.js";
+import {
+  getAstrologerForSession,
+  getWalletForSession,
+  listAstrologerProfiles,
+  readAuthSession
+} from "./auth.js";
 
 const router = Router();
 
-function readRequestedRole(req) {
-  const session = readAuthSession(req);
-  return String(session?.role || req.get("x-demo-role") || req.query.role || "").trim().toLowerCase();
-}
-
 function requireRole(req, res, role) {
-  const requestedRole = readRequestedRole(req);
+  const session = readAuthSession(req);
 
-  if (requestedRole && requestedRole !== role) {
-    res.status(403).json({ message: `This panel is only available for ${role} accounts.` });
-    return false;
+  if (!session) {
+    res.status(401).json({ message: "Sign in to open this panel." });
+    return null;
   }
 
-  return true;
+  if (session.role !== role) {
+    res.status(403).json({ message: `This panel is only available for ${role} accounts.` });
+    return null;
+  }
+
+  return session;
 }
 
 function toSerializableBooking(booking) {
+  const item = typeof booking?.toObject === "function" ? booking.toObject() : booking;
+
   return {
-    bookingId: booking.bookingId,
-    astrologerId: booking.astrologerId,
-    astrologerName: booking.astrologerName,
-    customerId: booking.customerId,
-    customerEmail: booking.customerEmail,
-    customerName: booking.customerName,
-    concern: booking.concern,
-    mode: booking.mode,
-    durationMinutes: booking.durationMinutes,
-    consultationFee: booking.consultationFee,
-    amountPaid: booking.amountPaid,
-    currency: booking.currency,
-    paymentStatus: booking.paymentStatus,
-    razorpayOrderId: booking.razorpayOrderId,
-    razorpayPaymentId: booking.razorpayPaymentId,
-    paidAt: booking.paidAt?.toISOString?.() || booking.paidAt || null,
-    sessionStartedAt: booking.sessionStartedAt?.toISOString?.() || booking.sessionStartedAt || null,
-    sessionEndsAt: booking.sessionEndsAt?.toISOString?.() || booking.sessionEndsAt || null,
-    birthDate: booking.birthDate,
-    birthTime: booking.birthTime,
-    place: booking.place,
-    etaMinutes: booking.etaMinutes,
-    status: booking.status,
-    createdAt: booking.createdAt?.toISOString?.() || booking.createdAt || null,
-    updatedAt: booking.updatedAt?.toISOString?.() || booking.updatedAt || null
+    bookingId: item.bookingId,
+    astrologerId: item.astrologerId,
+    astrologerName: item.astrologerName,
+    customerId: item.customerId,
+    customerEmail: item.customerEmail,
+    customerName: item.customerName,
+    concern: item.concern,
+    mode: item.mode,
+    durationMinutes: item.durationMinutes,
+    consultationFee: item.consultationFee,
+    amountPaid: item.amountPaid,
+    currency: item.currency,
+    paymentStatus: item.paymentStatus,
+    razorpayOrderId: item.razorpayOrderId,
+    razorpayPaymentId: item.razorpayPaymentId,
+    paidAt: item.paidAt?.toISOString?.() || item.paidAt || null,
+    sessionStartedAt: item.sessionStartedAt?.toISOString?.() || item.sessionStartedAt || null,
+    sessionEndsAt: item.sessionEndsAt?.toISOString?.() || item.sessionEndsAt || null,
+    birthDate: item.birthDate,
+    birthTime: item.birthTime,
+    place: item.place,
+    etaMinutes: item.etaMinutes,
+    status: item.status,
+    createdAt: item.createdAt?.toISOString?.() || item.createdAt || null,
+    updatedAt: item.updatedAt?.toISOString?.() || item.updatedAt || null
   };
 }
 
-async function getAstrologerRows(req) {
-  if (!req.app.locals.mongoReady) return astrologers;
-
-  const rows = await Astrologer.find().sort({ rating: -1 }).lean();
-  return rows.map(({ _id, __v, ...item }) => item);
-}
-
-async function getConsultationRows(req, session) {
-  if (!req.app.locals.mongoReady) {
-    const rows = getDemoConsultations();
-    if (session?.role !== "user") return rows;
-
-    const customerRows = rows.filter((item) => item.customerEmail === session.email);
-    return customerRows.length ? customerRows : rows;
+async function getConsultationRows(req, session, astrologerProfile = null) {
+  if (req.app.locals.mongoReady) {
+    const query =
+      session.role === "user"
+        ? { customerEmail: session.email }
+        : session.role === "astrologer"
+          ? { astrologerId: astrologerProfile?.id || "__missing__" }
+          : {};
+    const rows = await Consultation.find(query).sort({ createdAt: -1 }).limit(30).lean();
+    return rows.map(toSerializableBooking);
   }
 
-  const query = session?.role === "user" ? { customerEmail: session.email } : {};
-  const rows = await Consultation.find(query).sort({ createdAt: -1 }).limit(12).lean();
-  return rows.map(toSerializableBooking);
+  return getConsultations()
+    .filter((item) => {
+      if (session.role === "user") return item.customerEmail === session.email;
+      if (session.role === "astrologer") return item.astrologerId === astrologerProfile?.id;
+      return true;
+    })
+    .map(toSerializableBooking);
 }
 
 function money(value) {
-  return `Rs ${Number(value).toLocaleString("en-IN")}`;
+  return `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+}
+
+function profileCompleteness(profile) {
+  if (!profile) return 0;
+
+  const fields = [
+    profile.name,
+    profile.phone,
+    profile.title,
+    profile.bio,
+    profile.city,
+    profile.specialties?.length,
+    profile.languages?.length,
+    profile.experience !== undefined,
+    profile.pricePerMinute,
+    profile.modes?.length,
+    profile.status,
+    profile.responseTime,
+    profile.availability,
+    profile.education,
+    profile.certifications
+  ];
+  const complete = fields.filter(Boolean).length;
+
+  return Math.round((complete / fields.length) * 100);
 }
 
 router.get("/user", async (req, res, next) => {
-  if (!requireRole(req, res, "user")) return;
+  const session = requireRole(req, res, "user");
+  if (!session) return;
 
   try {
-    const session = readAuthSession(req);
     const [astrologerRows, consultations, wallet] = await Promise.all([
-      getAstrologerRows(req),
+      listAstrologerProfiles(req),
       getConsultationRows(req, session),
       getWalletForSession(req, session)
     ]);
 
     const recommendations = astrologerRows
       .filter((item) => item.status !== "offline")
-      .sort((a, b) => b.rating - a.rating)
+      .sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0))
       .slice(0, 3)
       .map((item) => ({
         id: item.id,
@@ -103,52 +134,21 @@ router.get("/user", async (req, res, next) => {
         modes: item.modes
       }));
 
-    const upcoming = consultations
-      .filter((item) => item.status !== "completed")
-      .slice(0, 3)
-      .map(toSerializableBooking);
-
-    const history = consultations
-      .filter((item) => item.status === "completed")
-      .concat(consultations.filter((item) => item.status !== "completed").slice(1))
-      .slice(0, 4)
-      .map(toSerializableBooking);
+    const upcoming = consultations.filter((item) => item.status !== "completed").slice(0, 3);
+    const history = consultations.filter((item) => item.status === "completed").slice(0, 4);
 
     res.json({
       profile: {
-        tier: "Gold member",
-        memberSince: "January 2025",
-        savedBirthProfiles: 3
+        tier: "Member",
+        memberSince: "New account",
+        savedBirthProfiles: 0
       },
       wallet,
       upcoming,
       history,
-      savedTools: [
-        {
-          id: "kundli-default",
-          title: "Personal kundli",
-          detail: "Leo ascendant, Rohini nakshatra",
-          updatedAt: "Updated today"
-        },
-        {
-          id: "match-aarav-meera",
-          title: "Compatibility check",
-          detail: "Aarav + Meera, 31/36 gunas",
-          updatedAt: "Updated yesterday"
-        },
-        {
-          id: "daily-leo",
-          title: "Daily horoscope",
-          detail: "Career 90, energy 92",
-          updatedAt: "Fresh for today"
-        }
-      ],
+      savedTools: [],
       recommendations,
-      notifications: [
-        "Your next chat starts in about 2 minutes.",
-        "Isha Sharma shared a remedy note for your saved kundli.",
-        "12 free consultation minutes are available in your wallet."
-      ]
+      notifications: []
     });
   } catch (error) {
     next(error);
@@ -156,37 +156,36 @@ router.get("/user", async (req, res, next) => {
 });
 
 router.get("/admin", async (req, res, next) => {
-  if (!requireRole(req, res, "admin")) return;
+  const session = requireRole(req, res, "admin");
+  if (!session) return;
 
   try {
-    const session = readAuthSession(req);
     const [astrologerRows, consultations] = await Promise.all([
-      getAstrologerRows(req),
+      listAstrologerProfiles(req),
       getConsultationRows(req, session)
     ]);
 
     const onlineCount = astrologerRows.filter((item) => item.status === "online").length;
     const busyCount = astrologerRows.filter((item) => item.status === "busy").length;
     const offlineCount = astrologerRows.filter((item) => item.status === "offline").length;
-    const bookingQueue = consultations.slice(0, 6).map(toSerializableBooking);
     const revenueToday = consultations.reduce((total, item) => {
       if (item.paymentStatus && item.paymentStatus !== "paid") return total;
-
-      const astrologer = astrologerRows.find((row) => row.id === item.astrologerId);
-      return (
-        total +
-        (item.amountPaid ??
-          item.consultationFee ??
-          (astrologer?.pricePerMinute || 18) * Math.max(5, item.durationMinutes || 5))
-      );
+      return total + (Number(item.amountPaid ?? item.consultationFee) || 0);
     }, 0);
+    const avgRating =
+      astrologerRows.length > 0
+        ? (
+            astrologerRows.reduce((sum, item) => sum + (Number(item.rating) || 0), 0) /
+            astrologerRows.length
+          ).toFixed(1)
+        : "0.0";
 
     res.json({
       metrics: [
         {
           label: "Revenue today",
           value: money(revenueToday),
-          detail: "+12% from yesterday"
+          detail: "From paid consultations"
         },
         {
           label: "Active bookings",
@@ -200,9 +199,7 @@ router.get("/admin", async (req, res, next) => {
         },
         {
           label: "Avg. rating",
-          value: (
-            astrologerRows.reduce((sum, item) => sum + item.rating, 0) / astrologerRows.length
-          ).toFixed(1),
+          value: avgRating,
           detail: `${astrologerRows.length} listed experts`
         }
       ],
@@ -211,63 +208,64 @@ router.get("/admin", async (req, res, next) => {
         busy: busyCount,
         offline: offlineCount
       },
-      approvalQueue: [
-        {
-          id: "approval-1",
-          name: "Kavya Joshi",
-          specialty: "Tarot",
-          experience: 6,
-          language: "Hindi, English",
-          status: "Documents pending"
-        },
-        {
-          id: "approval-2",
-          name: "Om Prakash",
-          specialty: "Vastu",
-          experience: 18,
-          language: "Hindi",
-          status: "Interview ready"
-        },
-        {
-          id: "approval-3",
-          name: "Sana Mirza",
-          specialty: "Numerology",
-          experience: 8,
-          language: "English, Urdu",
-          status: "Profile review"
-        }
-      ],
-      bookingQueue,
-      catalogHealth: services.map((service, index) => ({
+      approvalQueue: [],
+      bookingQueue: consultations.slice(0, 6),
+      catalogHealth: services.map((service) => ({
         id: service.id,
         title: service.title,
-        status: index < 4 ? "live" : "draft",
-        bookings: 120 - index * 13,
-        conversion: `${18 - index}%`
+        status: "live",
+        bookings: consultations.length,
+        conversion: "0%"
       })),
-      supportQueue: [
+      supportQueue: []
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/astrologer", async (req, res, next) => {
+  const session = requireRole(req, res, "astrologer");
+  if (!session) return;
+
+  try {
+    const profile = await getAstrologerForSession(req, session);
+    const consultations = await getConsultationRows(req, session, profile);
+    const upcoming = consultations.filter((item) => item.status !== "completed").slice(0, 5);
+    const history = consultations.filter((item) => item.status === "completed").slice(0, 5);
+    const paidConsultations = consultations.filter((item) => item.paymentStatus === "paid");
+    const earnings = paidConsultations.reduce(
+      (total, item) => total + (Number(item.amountPaid ?? item.consultationFee) || 0),
+      0
+    );
+
+    res.json({
+      profile,
+      profileComplete: profileCompleteness(profile),
+      metrics: [
         {
-          id: "ticket-1",
-          customer: "Mitra Sharma",
-          issue: "Wallet recharge confirmation",
-          priority: "high",
-          age: "4 min"
+          label: "Status",
+          value: profile?.status || "Draft",
+          detail: profile?.responseTime ? `${profile.responseTime} response` : "Profile not listed"
         },
         {
-          id: "ticket-2",
-          customer: "Aarav Mehta",
-          issue: "Call reschedule request",
-          priority: "medium",
-          age: "12 min"
+          label: "Rate",
+          value: profile?.pricePerMinute ? `Rs ${profile.pricePerMinute}/min` : "Set rate",
+          detail: profile?.modes?.length ? profile.modes.join(", ") : "Choose chat or call"
         },
         {
-          id: "ticket-3",
-          customer: "Meera Kapoor",
-          issue: "Kundli export question",
-          priority: "low",
-          age: "24 min"
+          label: "Bookings",
+          value: String(consultations.length),
+          detail: `${upcoming.length} active`
+        },
+        {
+          label: "Earnings",
+          value: money(earnings),
+          detail: `${paidConsultations.length} paid consultation${paidConsultations.length === 1 ? "" : "s"}`
         }
-      ]
+      ],
+      upcoming,
+      history
     });
   } catch (error) {
     next(error);

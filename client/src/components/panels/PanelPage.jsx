@@ -1,4 +1,5 @@
 import AdminPanel from "./AdminPanel";
+import AstrologerPanel from "./AstrologerPanel";
 import UserPanel from "./UserPanel";
 
 function PanelPage({
@@ -29,15 +30,32 @@ function PanelPage({
 
   if (!data) return null;
 
-  return session.user.role === "admin" ? (
-    <AdminPanel
-      session={session}
-      data={data}
-      status={status}
-      onOpenSession={onOpenSession}
-      onRefresh={onRefresh}
-    />
-  ) : (
+  if (session.user.role === "admin") {
+    return (
+      <AdminPanel
+        session={session}
+        data={data}
+        status={status}
+        onOpenSession={onOpenSession}
+        onRefresh={onRefresh}
+      />
+    );
+  }
+
+  if (session.user.role === "astrologer") {
+    return (
+      <AstrologerPanel
+        session={session}
+        data={data}
+        status={status}
+        onOpenSession={onOpenSession}
+        onOpenProfile={onOpenProfile}
+        onRefresh={onRefresh}
+      />
+    );
+  }
+
+  return (
     <UserPanel
       session={session}
       data={data}

@@ -4,7 +4,7 @@ export async function connectDB() {
   const uri = process.env.MONGO_URI;
 
   if (!uri) {
-    console.log("MongoDB is not configured. Using seeded in-memory data.");
+    console.log("MongoDB is not configured. Using empty in-memory data.");
     return false;
   }
 
@@ -16,7 +16,7 @@ export async function connectDB() {
     return true;
   } catch (error) {
     console.warn(`MongoDB connection failed: ${error.message}`);
-    console.warn("Continuing with seeded in-memory data.");
+    console.warn("Continuing with empty in-memory data.");
     return false;
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import {
+  initialAstrologerProfile,
   initialBooking,
   initialFilters,
   initialProfile,
@@ -11,6 +12,7 @@ import SignInPage from "./components/auth/SignInPage";
 import HomePage from "./components/home/HomePage";
 import Header from "./components/layout/Header";
 import PanelPage from "./components/panels/PanelPage";
+import AstrologerProfilePage from "./components/profile/AstrologerProfilePage";
 import ProfilePage from "./components/profile/ProfilePage";
 import ConsultationSession from "./components/session/ConsultationSession";
 import { formatRupees, openRazorpayCheckout } from "./utils/razorpay";
@@ -29,6 +31,35 @@ function profileFormFromUser(user = {}) {
     concern: profile.concern || "",
     gender: profile.gender || "",
     preferredLanguage: profile.preferredLanguage || ""
+  };
+}
+
+function listToText(value) {
+  return Array.isArray(value) ? value.join(", ") : value || "";
+}
+
+function astrologerFormFromUser(user = {}) {
+  const profile = user.astrologer || {};
+
+  return {
+    ...initialAstrologerProfile,
+    name: user.name || profile.name || "",
+    email: user.email || profile.email || "",
+    phone: user.phone || profile.phone || "",
+    title: profile.title || "",
+    bio: profile.bio || "",
+    city: profile.city || "",
+    specialties: listToText(profile.specialties),
+    languages: listToText(profile.languages),
+    experience: profile.experience ?? "",
+    pricePerMinute: profile.pricePerMinute ?? "",
+    modes: profile.modes?.length ? profile.modes : initialAstrologerProfile.modes,
+    status: profile.status || "online",
+    responseTime: profile.responseTime || "",
+    availability: profile.availability || "",
+    education: profile.education || "",
+    certifications: profile.certifications || "",
+    accent: profile.accent || initialAstrologerProfile.accent
   };
 }
 
@@ -58,6 +89,29 @@ function profilePayloadFromForm(form) {
       concern: form.concern,
       gender: form.gender,
       preferredLanguage: form.preferredLanguage
+    }
+  };
+}
+
+function astrologerPayloadFromForm(form) {
+  return {
+    name: form.name,
+    phone: form.phone,
+    astrologer: {
+      title: form.title,
+      bio: form.bio,
+      city: form.city,
+      specialties: form.specialties,
+      languages: form.languages,
+      experience: form.experience,
+      pricePerMinute: form.pricePerMinute,
+      modes: form.modes,
+      status: form.status,
+      responseTime: form.responseTime,
+      availability: form.availability,
+      education: form.education,
+      certifications: form.certifications,
+      accent: form.accent
     }
   };
 }
@@ -105,6 +159,7 @@ function App() {
   const [panelStatus, setPanelStatus] = useState({ loading: false, error: "" });
   const [walletStatus, setWalletStatus] = useState({ loading: false, error: "", success: "" });
   const [profileForm, setProfileForm] = useState(initialProfile);
+  const [astrologerProfileForm, setAstrologerProfileForm] = useState(initialAstrologerProfile);
   const [profileStatus, setProfileStatus] = useState({ loading: false, error: "", success: "" });
   const [activeConsultation, setActiveConsultation] = useState(null);
 
@@ -139,12 +194,15 @@ function App() {
       setPanelData(null);
       setPanelStatus({ loading: false, error: "" });
       setProfileForm(initialProfile);
+      setAstrologerProfileForm(initialAstrologerProfile);
       setProfileStatus({ loading: false, error: "", success: "" });
       return;
     }
 
     if (session.user.role === "user") {
       setProfileForm(profileFormFromUser(session.user));
+    } else if (session.user.role === "astrologer") {
+      setAstrologerProfileForm(astrologerFormFromUser(session.user));
     }
 
     loadPanelData(session);
@@ -313,6 +371,13 @@ function App() {
     }
 
     if (session.user.role !== "user") {
+      if (session.user.role === "astrologer") {
+        setAstrologerProfileForm(astrologerFormFromUser(session.user));
+        setProfileStatus({ loading: false, error: "", success: "" });
+        setActivePage("astrologer-profile");
+        return;
+      }
+
       setActivePage("panel");
       return;
     }
@@ -355,24 +420,18 @@ function App() {
     setSignInStatus({ loading: false, error: "", success: "" });
   }
 
-  function fillDemoCredentials() {
-    const mode = signInModes[signInForm.role];
-    setSignInForm((current) => ({
-      ...current,
-      email: mode.email,
-      password: mode.password,
-      adminCode: mode.adminCode || ""
-    }));
-    setSignInStatus({ loading: false, error: "", success: "" });
-  }
-
   async function loadPanelData(activeSession = session) {
     if (!activeSession) return;
 
     setPanelStatus({ loading: true, error: "" });
 
     try {
-      const loadPanel = activeSession.user.role === "admin" ? api.adminPanel : api.userPanel;
+      const loadPanel =
+        activeSession.user.role === "admin"
+          ? api.adminPanel
+          : activeSession.user.role === "astrologer"
+            ? api.astrologerPanel
+            : api.userPanel;
       const payload = await loadPanel(activeSession);
       setPanelData(payload);
       setPanelStatus({ loading: false, error: "" });
@@ -416,6 +475,22 @@ function App() {
     setProfileStatus((current) => ({ ...current, error: "", success: "" }));
   }
 
+  function updateAstrologerProfileField(key, value) {
+    setAstrologerProfileForm((current) => ({ ...current, [key]: value }));
+    setProfileStatus((current) => ({ ...current, error: "", success: "" }));
+  }
+
+  async function refreshCatalog() {
+    const [filterPayload, statsPayload, astrologerPayload] = await Promise.all([
+      api.filters(),
+      api.stats(),
+      api.astrologers(filters)
+    ]);
+    setFilterOptions(filterPayload);
+    setStats(statsPayload);
+    setAstrologers(astrologerPayload);
+  }
+
   async function submitProfile(event) {
     event.preventDefault();
 
@@ -427,12 +502,23 @@ function App() {
     setProfileStatus({ loading: true, error: "", success: "" });
 
     try {
-      const payload = await api.updateProfile(profilePayloadFromForm(profileForm), session);
+      const isAstrologer = session.user.role === "astrologer";
+      const payload = await api.updateProfile(
+        isAstrologer
+          ? astrologerPayloadFromForm(astrologerProfileForm)
+          : profilePayloadFromForm(profileForm),
+        session
+      );
       setSession(payload);
-      setProfileForm(profileFormFromUser(payload.user));
+      if (isAstrologer) {
+        setAstrologerProfileForm(astrologerFormFromUser(payload.user));
+        await refreshCatalog();
+      } else {
+        setProfileForm(profileFormFromUser(payload.user));
+      }
       setProfileStatus({ loading: false, error: "", success: payload.message });
 
-      if (selectedAstrologer) {
+      if (!isAstrologer && selectedAstrologer) {
         setBooking((current) =>
           bookingDefaultsFromUser(payload.user, current.mode, current.durationMinutes)
         );
@@ -450,7 +536,12 @@ function App() {
       const payload =
         authMode === "register" ? await api.register(signInForm) : await api.signIn(signInForm);
       setSession(payload);
-      setProfileForm(profileFormFromUser(payload.user));
+      if (payload.user.role === "astrologer") {
+        setAstrologerProfileForm(astrologerFormFromUser(payload.user));
+        await refreshCatalog();
+      } else {
+        setProfileForm(profileFormFromUser(payload.user));
+      }
       if (returnToBooking && selectedAstrologer) {
         setBooking((current) =>
           bookingDefaultsFromUser(payload.user, current.mode, current.durationMinutes)
@@ -473,6 +564,7 @@ function App() {
     setSignInStatus({ loading: false, error: "", success: "" });
     setWalletStatus({ loading: false, error: "", success: "" });
     setProfileForm(initialProfile);
+    setAstrologerProfileForm(initialAstrologerProfile);
     setProfileStatus({ loading: false, error: "", success: "" });
     setReturnToBooking(false);
     setActivePage("home");
@@ -499,7 +591,6 @@ function App() {
           showPassword={showPassword}
           onBack={openHome}
           onChange={updateSignInField}
-          onFillDemo={fillDemoCredentials}
           onLogout={logout}
           onSelectAuthMode={selectAuthMode}
           onSelectRole={selectSignInRole}
@@ -522,6 +613,14 @@ function App() {
           onOpenProfile={openProfile}
           onRefresh={() => loadPanelData(session)}
           onWalletRecharge={rechargeWallet}
+        />
+      ) : activePage === "astrologer-profile" && session?.user.role === "astrologer" ? (
+        <AstrologerProfilePage
+          form={astrologerProfileForm}
+          status={profileStatus}
+          onBack={() => setActivePage("panel")}
+          onChange={updateAstrologerProfileField}
+          onSubmit={submitProfile}
         />
       ) : activePage === "profile" && session?.user.role === "user" ? (
         <ProfilePage

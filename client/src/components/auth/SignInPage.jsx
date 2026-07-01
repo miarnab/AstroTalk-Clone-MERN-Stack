@@ -1,14 +1,23 @@
 import {
   ArrowLeft,
+  BadgeCheck,
   CheckCircle2,
   CircleUserRound,
+  Clock3,
   Eye,
   EyeOff,
+  GraduationCap,
+  IndianRupee,
   KeyRound,
+  Languages,
+  MapPin,
   LogOut,
   Mail,
+  MessageCircle,
+  Palette,
   Phone,
   ShieldCheck,
+  Sparkles,
   UserCog,
   UserPlus
 } from "lucide-react";
@@ -22,7 +31,6 @@ function SignInPage({
   showPassword,
   onBack,
   onChange,
-  onFillDemo,
   onLogout,
   onSelectAuthMode,
   onSelectRole,
@@ -31,9 +39,18 @@ function SignInPage({
 }) {
   const mode = signInModes[form.role];
   const isRegistering = authMode === "register";
+  const isAstrologer = form.role === "astrologer";
   const panelTitle = isRegistering ? mode.registerTitle : mode.signInTitle;
   const panelDescription = isRegistering ? mode.registerDescription : mode.signInDescription;
   const submitLabel = isRegistering ? `Register ${mode.label}` : `Sign in as ${mode.label}`;
+  const selectedModes = Array.isArray(form.modes) ? form.modes : [];
+
+  function toggleConsultationMode(value) {
+    const nextModes = selectedModes.includes(value)
+      ? selectedModes.filter((item) => item !== value)
+      : [...selectedModes, value];
+    onChange("modes", nextModes);
+  }
 
   return (
     <main className="signin-page" id="signin">
@@ -48,7 +65,7 @@ function SignInPage({
             {isRegistering ? <UserPlus size={16} /> : <KeyRound size={16} />}
             Account access
           </span>
-          <h1 id="signin-title">Create customer and admin accounts.</h1>
+          <h1 id="signin-title">Create customer, astrologer, and admin accounts.</h1>
           <p>
             Register new accounts, sign back in, and continue into the right AstroTalk workspace
             from the same screen.
@@ -65,7 +82,13 @@ function SignInPage({
 
           <div className="signin-status-card">
             <div className="status-icon">
-              {form.role === "admin" ? <UserCog size={22} /> : <CircleUserRound size={22} />}
+              {form.role === "admin" ? (
+                <UserCog size={22} />
+              ) : isAstrologer ? (
+                <Sparkles size={22} />
+              ) : (
+                <CircleUserRound size={22} />
+              )}
             </div>
             <div>
               <strong>{session ? session.user.dashboard : panelTitle}</strong>
@@ -108,7 +131,13 @@ function SignInPage({
                 className={form.role === role ? "active" : ""}
                 onClick={() => onSelectRole(role)}
               >
-                {role === "admin" ? <UserCog size={18} /> : <CircleUserRound size={18} />}
+                {role === "admin" ? (
+                  <UserCog size={18} />
+                ) : role === "astrologer" ? (
+                  <Sparkles size={18} />
+                ) : (
+                  <CircleUserRound size={18} />
+                )}
                 {item.label}
               </button>
             ))}
@@ -160,7 +189,7 @@ function SignInPage({
                   type="email"
                   value={form.email}
                   onChange={(event) => onChange("email", event.target.value)}
-                  placeholder={mode.email}
+                  placeholder={mode.emailPlaceholder}
                   autoComplete="email"
                   required
                 />
@@ -209,6 +238,221 @@ function SignInPage({
               </label>
             ) : null}
 
+            {isRegistering && isAstrologer ? (
+              <div className="astrologer-registration-fields">
+                <div className="signin-form-heading compact">
+                  <h3>Public astrologer listing</h3>
+                  <p>These details create the bookable profile shown to customers.</p>
+                </div>
+
+                <label>
+                  Professional title
+                  <span className="input-shell">
+                    <BadgeCheck size={18} />
+                    <input
+                      value={form.title}
+                      onChange={(event) => onChange("title", event.target.value)}
+                      placeholder="Vedic astrologer, Tarot reader..."
+                      required
+                    />
+                  </span>
+                </label>
+
+                <label>
+                  Profile bio
+                  <span className="textarea-shell">
+                    <MessageCircle size={18} />
+                    <textarea
+                      value={form.bio}
+                      onChange={(event) => onChange("bio", event.target.value)}
+                      placeholder="Describe your approach, consultation style, and expertise."
+                      required
+                    />
+                  </span>
+                </label>
+
+                <div className="two-col">
+                  <label>
+                    City
+                    <span className="input-shell">
+                      <MapPin size={18} />
+                      <input
+                        value={form.city}
+                        onChange={(event) => onChange("city", event.target.value)}
+                        placeholder="Jaipur"
+                        required
+                      />
+                    </span>
+                  </label>
+
+                  <label>
+                    Experience
+                    <span className="input-shell">
+                      <Clock3 size={18} />
+                      <input
+                        type="number"
+                        min="0"
+                        max="80"
+                        value={form.experience}
+                        onChange={(event) => onChange("experience", event.target.value)}
+                        placeholder="8"
+                        required
+                      />
+                    </span>
+                  </label>
+                </div>
+
+                <div className="two-col">
+                  <label>
+                    Specialties
+                    <span className="input-shell">
+                      <Sparkles size={18} />
+                      <input
+                        value={form.specialties}
+                        onChange={(event) => onChange("specialties", event.target.value)}
+                        placeholder="Love, Career, Kundli"
+                        required
+                      />
+                    </span>
+                  </label>
+
+                  <label>
+                    Languages
+                    <span className="input-shell">
+                      <Languages size={18} />
+                      <input
+                        value={form.languages}
+                        onChange={(event) => onChange("languages", event.target.value)}
+                        placeholder="Hindi, English"
+                        required
+                      />
+                    </span>
+                  </label>
+                </div>
+
+                <div className="two-col">
+                  <label>
+                    Price per minute
+                    <span className="input-shell">
+                      <IndianRupee size={18} />
+                      <input
+                        type="number"
+                        min="1"
+                        value={form.pricePerMinute}
+                        onChange={(event) => onChange("pricePerMinute", event.target.value)}
+                        placeholder="25"
+                        required
+                      />
+                    </span>
+                  </label>
+
+                  <label>
+                    Response time
+                    <span className="input-shell">
+                      <Clock3 size={18} />
+                      <input
+                        value={form.responseTime}
+                        onChange={(event) => onChange("responseTime", event.target.value)}
+                        placeholder="5 min"
+                        required
+                      />
+                    </span>
+                  </label>
+                </div>
+
+                <label>
+                  Availability hours
+                  <span className="input-shell">
+                    <Clock3 size={18} />
+                    <input
+                      value={form.availability}
+                      onChange={(event) => onChange("availability", event.target.value)}
+                      placeholder="Mon-Sat, 10 AM - 7 PM"
+                      required
+                    />
+                  </span>
+                </label>
+
+                <div className="two-col">
+                  <label>
+                    Education / training
+                    <span className="input-shell">
+                      <GraduationCap size={18} />
+                      <input
+                        value={form.education}
+                        onChange={(event) => onChange("education", event.target.value)}
+                        placeholder="Jyotish diploma, mentor training..."
+                        required
+                      />
+                    </span>
+                  </label>
+
+                  <label>
+                    Certifications
+                    <span className="input-shell">
+                      <BadgeCheck size={18} />
+                      <input
+                        value={form.certifications}
+                        onChange={(event) => onChange("certifications", event.target.value)}
+                        placeholder="Verified ID, institute certificate..."
+                        required
+                      />
+                    </span>
+                  </label>
+                </div>
+
+                <div className="two-col">
+                  <label>
+                    Availability status
+                    <span className="input-shell">
+                      <Sparkles size={18} />
+                      <select
+                        value={form.status}
+                        onChange={(event) => onChange("status", event.target.value)}
+                        required
+                      >
+                        <option value="online">Online</option>
+                        <option value="busy">Busy</option>
+                        <option value="offline">Offline</option>
+                      </select>
+                    </span>
+                  </label>
+
+                  <label>
+                    Profile color
+                    <span className="input-shell">
+                      <Palette size={18} />
+                      <input
+                        type="color"
+                        value={form.accent}
+                        onChange={(event) => onChange("accent", event.target.value)}
+                        aria-label="Profile accent color"
+                      />
+                    </span>
+                  </label>
+                </div>
+
+                <div className="mode-checks" aria-label="Consultation modes">
+                  <label className="checkbox-line">
+                    <input
+                      type="checkbox"
+                      checked={selectedModes.includes("chat")}
+                      onChange={() => toggleConsultationMode("chat")}
+                    />
+                    Chat consultations
+                  </label>
+                  <label className="checkbox-line">
+                    <input
+                      type="checkbox"
+                      checked={selectedModes.includes("call")}
+                      onChange={() => toggleConsultationMode("call")}
+                    />
+                    Call consultations
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
             {form.role === "admin" ? (
               <label>
                 {isRegistering ? "Admin registration code" : "Admin access code"}
@@ -235,9 +479,6 @@ function SignInPage({
                   />
                   Remember me
                 </label>
-                <button className="text-button" type="button" onClick={onFillDemo}>
-                  Use demo
-                </button>
               </div>
             ) : null}
 
@@ -255,21 +496,13 @@ function SignInPage({
               <div>
                 <strong>{session.user.name}</strong>
                 <span>
-                  {session.user.role === "admin" ? "admin" : "customer"} - {session.user.email}
+                  {session.user.role} - {session.user.email}
                 </span>
               </div>
               <button className="secondary-button" type="button" onClick={onLogout}>
                 <LogOut size={17} />
                 Sign out
               </button>
-            </div>
-          ) : !isRegistering ? (
-            <div className="demo-credentials">
-              <strong>Demo {mode.label.toLowerCase()} login</strong>
-              <span>
-                {mode.email} / {mode.password}
-                {mode.adminCode ? ` / ${mode.adminCode}` : ""}
-              </span>
             </div>
           ) : null}
         </div>

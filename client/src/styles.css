@@ -253,6 +253,10 @@ a {
   margin: 0 auto;
 }
 
+.signin-shell:has(.astrologer-registration-fields) {
+  grid-template-columns: minmax(0, 0.7fr) minmax(520px, 0.95fr);
+}
+
 .signin-copy {
   display: grid;
   gap: 18px;
@@ -400,8 +404,18 @@ a {
   font-size: 1.45rem;
 }
 
+.signin-form-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.signin-form-heading.compact {
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
 .signin-form-heading p,
-.demo-credentials span,
 .signed-session span {
   color: var(--muted);
   line-height: 1.45;
@@ -440,6 +454,14 @@ a {
   padding: 0;
 }
 
+.input-shell input[type="color"] {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 34px;
+  padding: 0;
+  border-radius: 8px;
+}
+
 .password-toggle {
   display: grid;
   flex: 0 0 34px;
@@ -472,6 +494,21 @@ a {
   width: 16px;
   height: 16px;
   accent-color: var(--teal);
+}
+
+.astrologer-registration-fields {
+  display: grid;
+  gap: 13px;
+}
+
+.mode-checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  background: #f8fafb;
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
 
 .text-button {
@@ -508,8 +545,7 @@ a {
   gap: 8px;
 }
 
-.signed-session,
-.demo-credentials {
+.signed-session {
   margin-top: 14px;
   padding: 14px;
   background: #eef9f8;
@@ -522,8 +558,7 @@ a {
   gap: 12px;
 }
 
-.signed-session div,
-.demo-credentials {
+.signed-session div {
   display: grid;
   gap: 4px;
   min-width: 0;

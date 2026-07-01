@@ -75,13 +75,17 @@ function AdminPanel({ session, data, status, onOpenSession, onRefresh }) {
             </div>
           </div>
           <div className="panel-list">
-            {data.bookingQueue.map((booking) => (
-              <BookingRow
-                key={booking.bookingId}
-                booking={booking}
-                onOpenSession={onOpenSession}
-              />
-            ))}
+            {data.bookingQueue.length ? (
+              data.bookingQueue.map((booking) => (
+                <BookingRow
+                  key={booking.bookingId}
+                  booking={booking}
+                  onOpenSession={onOpenSession}
+                />
+              ))
+            ) : (
+              <div className="empty-panel">No consultation is queued.</div>
+            )}
           </div>
         </article>
 
@@ -96,15 +100,19 @@ function AdminPanel({ session, data, status, onOpenSession, onRefresh }) {
             </div>
           </div>
           <div className="compact-panel-list">
-            {data.approvalQueue.map((item) => (
-              <div className="compact-panel-row" key={item.id}>
-                <strong>{item.name}</strong>
-                <span>
-                  {item.specialty} - {item.experience} yrs
-                </span>
-                <small>{item.status}</small>
-              </div>
-            ))}
+            {data.approvalQueue.length ? (
+              data.approvalQueue.map((item) => (
+                <div className="compact-panel-row" key={item.id}>
+                  <strong>{item.name}</strong>
+                  <span>
+                    {item.specialty} - {item.experience} yrs
+                  </span>
+                  <small>{item.status}</small>
+                </div>
+              ))
+            ) : (
+              <div className="empty-panel">No astrologer approval is pending.</div>
+            )}
           </div>
         </article>
 
@@ -141,15 +149,19 @@ function AdminPanel({ session, data, status, onOpenSession, onRefresh }) {
             </div>
           </div>
           <div className="compact-panel-list">
-            {data.supportQueue.map((item) => (
-              <div className="compact-panel-row" key={item.id}>
-                <strong>{item.customer}</strong>
-                <span>{item.issue}</span>
-                <small>
-                  {item.priority} priority - {item.age}
-                </small>
-              </div>
-            ))}
+            {data.supportQueue.length ? (
+              data.supportQueue.map((item) => (
+                <div className="compact-panel-row" key={item.id}>
+                  <strong>{item.customer}</strong>
+                  <span>{item.issue}</span>
+                  <small>
+                    {item.priority} priority - {item.age}
+                  </small>
+                </div>
+              ))
+            ) : (
+              <div className="empty-panel">No support tickets are open.</div>
+            )}
           </div>
         </article>
       </section>

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
+import Astrologer from "../models/Astrologer.js";
 import User from "../models/User.js";
 import { createAuthToken, hashPassword, verifyAuthToken, verifyPassword } from "../utils/security.js";
 
@@ -15,43 +16,21 @@ const roleProfiles = {
     role: "admin",
     dashboard: "Admin console",
     nextStep: "Astrologer approvals, bookings, and service controls are ready."
+  },
+  astrologer: {
+    role: "astrologer",
+    dashboard: "Astrologer dashboard",
+    nextStep: "Your profile, availability, and consultation queue are ready."
   }
 };
 
-const demoAccounts = [
-  {
-    id: "usr-demo",
-    name: "Mitra Sharma",
-    email: "customer@astrotalk.test",
-    phone: "9876543210",
-    role: "user",
-    password: "user123",
-    profile: {
-      birthDate: "1996-08-18",
-      birthTime: "07:30",
-      place: "Delhi",
-      concern: "Career growth and family harmony",
-      gender: "Female",
-      preferredLanguage: "Hindi"
-    }
-  },
-  {
-    id: "adm-demo",
-    name: "Admin Desk",
-    email: "admin@astrotalk.test",
-    phone: "9000000000",
-    role: "admin",
-    password: "admin123",
-    adminCodeVerified: true
-  }
-];
-
 const memoryAccounts = new Map();
+const memoryAstrologers = new Map();
 const defaultWallet = {
-  balance: 1200,
-  rewards: 340,
-  freeMinutes: 12,
-  spendThisMonth: 860
+  balance: 0,
+  rewards: 0,
+  freeMinutes: 0,
+  spendThisMonth: 0
 };
 const emptyCustomerProfile = {
   birthDate: "",
@@ -61,6 +40,7 @@ const emptyCustomerProfile = {
   gender: "",
   preferredLanguage: ""
 };
+const accentPalette = ["#f4b400", "#188b8b", "#e85d75", "#5661d9", "#2d9b68", "#d76a03"];
 
 function normalize(value = "") {
   return String(value).trim();
@@ -72,7 +52,9 @@ function normalizeEmail(value = "") {
 
 function normalizeRole(value = "") {
   const role = normalize(value).toLowerCase();
-  return role === "customer" ? "user" : role;
+  if (role === "customer") return "user";
+  if (role === "expert") return "astrologer";
+  return role;
 }
 
 function getAdminCode() {
@@ -91,37 +73,13 @@ function isValidPhone(value) {
   return normalize(value).replace(/\D/g, "").length >= 7;
 }
 
-function seedMemoryAccounts() {
-  if (memoryAccounts.size > 0) return;
-
-  demoAccounts.forEach((account) => {
-    memoryAccounts.set(account.email, {
-      ...account,
-      wallet: account.role === "user" ? { ...defaultWallet } : undefined,
-      passwordHash: hashPassword(account.password),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
-  });
-}
-
 function toAccountObject(account) {
   return typeof account?.toObject === "function" ? account.toObject() : account;
 }
 
-function publicUser(account) {
+function accountId(account) {
   const item = toAccountObject(account);
-  const profile = roleProfiles[item.role];
-
-  return {
-    id: item.id || item._id?.toString(),
-    name: item.name,
-    email: item.email,
-    phone: item.phone,
-    role: item.role,
-    dashboard: profile.dashboard,
-    profile: profileSnapshot(item)
-  };
+  return item?.id || item?._id?.toString();
 }
 
 function walletSnapshot(account) {
@@ -138,6 +96,172 @@ function profileSnapshot(account) {
   };
 }
 
+function splitList(value) {
+  const values = Array.isArray(value) ? value : String(value || "").split(/[,\n]/);
+  return [...new Set(values.map((entry) => normalize(entry)).filter(Boolean))];
+}
+
+function readModes(value) {
+  const values = Array.isArray(value) ? value : splitList(value);
+  return [...new Set(values.map((entry) => normalize(entry).toLowerCase()).filter((entry) => ["chat", "call"].includes(entry)))];
+}
+
+function readNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : Number.NaN;
+}
+
+function isHexColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(normalize(value));
+}
+
+function colorFromName(name) {
+  const text = normalize(name);
+  const index = [...text].reduce((total, char) => total + char.charCodeAt(0), 0) % accentPalette.length;
+  return accentPalette[index];
+}
+
+function createAstrologerId(name) {
+  const slug =
+    normalize(name)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 30) || "astrologer";
+
+  return `astro-${slug}-${randomUUID().slice(0, 8)}`;
+}
+
+function astrologerSnapshot(profile) {
+  if (!profile) return null;
+
+  const item = typeof profile?.toObject === "function" ? profile.toObject() : profile;
+
+  return {
+    id: item.id,
+    userId: item.userId,
+    name: item.name,
+    email: item.email,
+    phone: item.phone,
+    title: item.title,
+    bio: item.bio,
+    city: item.city,
+    specialties: item.specialties || [],
+    languages: item.languages || [],
+    experience: Number(item.experience) || 0,
+    rating: Number(item.rating) || 0,
+    orders: Number(item.orders) || 0,
+    pricePerMinute: Number(item.pricePerMinute) || 0,
+    modes: item.modes || [],
+    status: item.status || "online",
+    responseTime: item.responseTime,
+    availability: item.availability,
+    education: item.education,
+    certifications: item.certifications,
+    accent: item.accent || colorFromName(item.name),
+    createdAt: item.createdAt?.toISOString?.() || item.createdAt || null,
+    updatedAt: item.updatedAt?.toISOString?.() || item.updatedAt || null
+  };
+}
+
+function readAstrologerPayload(payload = {}, account = {}) {
+  const source =
+    payload.astrologer && typeof payload.astrologer === "object"
+      ? { ...payload, ...payload.astrologer }
+      : payload;
+  const name = normalize(source.name || account.name);
+  const accent = normalize(source.accent);
+
+  return {
+    name,
+    email: normalizeEmail(source.email || account.email),
+    phone: normalize(source.phone || account.phone),
+    title: normalize(source.title),
+    bio: normalize(source.bio),
+    city: normalize(source.city),
+    specialties: splitList(source.specialties),
+    languages: splitList(source.languages),
+    experience: readNumber(source.experience),
+    pricePerMinute: readNumber(source.pricePerMinute),
+    modes: readModes(source.modes),
+    status: normalize(source.status || "online").toLowerCase(),
+    responseTime: normalize(source.responseTime),
+    availability: normalize(source.availability),
+    education: normalize(source.education),
+    certifications: normalize(source.certifications),
+    accent: isHexColor(accent) ? accent : colorFromName(name)
+  };
+}
+
+function validateAstrologerProfile(profile, res) {
+  if (!profile.title || profile.title.length < 3) {
+    res.status(400).json({ message: "Enter a professional astrologer title." });
+    return false;
+  }
+
+  if (!profile.bio || profile.bio.length < 20) {
+    res.status(400).json({ message: "Enter a profile bio of at least 20 characters." });
+    return false;
+  }
+
+  if (!profile.city) {
+    res.status(400).json({ message: "Enter the astrologer's city." });
+    return false;
+  }
+
+  if (profile.specialties.length === 0) {
+    res.status(400).json({ message: "Enter at least one specialty." });
+    return false;
+  }
+
+  if (profile.languages.length === 0) {
+    res.status(400).json({ message: "Enter at least one language." });
+    return false;
+  }
+
+  if (!Number.isFinite(profile.experience) || profile.experience < 0 || profile.experience > 80) {
+    res.status(400).json({ message: "Experience must be between 0 and 80 years." });
+    return false;
+  }
+
+  if (!Number.isFinite(profile.pricePerMinute) || profile.pricePerMinute < 1 || profile.pricePerMinute > 10000) {
+    res.status(400).json({ message: "Price per minute must be between Rs 1 and Rs 10,000." });
+    return false;
+  }
+
+  if (profile.modes.length === 0) {
+    res.status(400).json({ message: "Choose chat, call, or both consultation modes." });
+    return false;
+  }
+
+  if (!["online", "busy", "offline"].includes(profile.status)) {
+    res.status(400).json({ message: "Choose a valid availability status." });
+    return false;
+  }
+
+  if (!profile.responseTime) {
+    res.status(400).json({ message: "Enter the usual response time." });
+    return false;
+  }
+
+  if (!profile.availability) {
+    res.status(400).json({ message: "Enter consultation availability hours." });
+    return false;
+  }
+
+  if (!profile.education) {
+    res.status(400).json({ message: "Enter education or training details." });
+    return false;
+  }
+
+  if (!profile.certifications) {
+    res.status(400).json({ message: "Enter certification or verification details." });
+    return false;
+  }
+
+  return true;
+}
+
 async function findAccountBySession(req, session) {
   if (!session?.email) return null;
 
@@ -145,7 +269,6 @@ async function findAccountBySession(req, session) {
     return User.findOne({ email: session.email });
   }
 
-  seedMemoryAccounts();
   return memoryAccounts.get(session.email) || null;
 }
 
@@ -168,8 +291,46 @@ async function updateWalletForSession(req, session, updater) {
   return walletSnapshot(account);
 }
 
-function createSession(account, message) {
-  const user = publicUser(account);
+async function findAstrologerForAccount(req, account) {
+  const item = toAccountObject(account);
+  const id = accountId(item);
+
+  if (!id || item.role !== "astrologer") return null;
+
+  if (req.app.locals.mongoReady) {
+    return Astrologer.findOne({
+      $or: [{ userId: id }, { email: item.email }]
+    });
+  }
+
+  return memoryAstrologers.get(id) || null;
+}
+
+async function publicUser(req, account) {
+  const item = toAccountObject(account);
+  const role = roleProfiles[item.role];
+  const user = {
+    id: accountId(item),
+    name: item.name,
+    email: item.email,
+    phone: item.phone,
+    role: item.role,
+    dashboard: role.dashboard
+  };
+
+  if (item.role === "user") {
+    user.profile = profileSnapshot(item);
+  }
+
+  if (item.role === "astrologer") {
+    user.astrologer = astrologerSnapshot(await findAstrologerForAccount(req, item));
+  }
+
+  return user;
+}
+
+async function createSession(req, account, message) {
+  const user = await publicUser(req, account);
   const profile = roleProfiles[user.role];
 
   return {
@@ -190,7 +351,6 @@ async function findAccount(req, email) {
     return User.findOne({ email });
   }
 
-  seedMemoryAccounts();
   return memoryAccounts.get(email) || null;
 }
 
@@ -198,7 +358,7 @@ async function createAccount(req, account) {
   const normalizedAccount = {
     ...account,
     email: normalizeEmail(account.email),
-    profile: account.profile || { ...emptyCustomerProfile },
+    profile: account.role === "user" ? account.profile || { ...emptyCustomerProfile } : undefined,
     wallet: account.role === "user" ? { ...defaultWallet } : undefined
   };
 
@@ -218,9 +378,55 @@ async function createAccount(req, account) {
   return storedAccount;
 }
 
+async function createOrUpdateAstrologerProfile(req, account, payload) {
+  const item = toAccountObject(account);
+  const id = accountId(item);
+  const profile = {
+    ...payload,
+    email: item.email,
+    phone: item.phone,
+    name: item.name,
+    userId: id
+  };
+
+  if (req.app.locals.mongoReady) {
+    const existing = await Astrologer.findOne({
+      $or: [{ userId: id }, { email: item.email }]
+    });
+
+    if (existing) {
+      Object.assign(existing, profile);
+      await existing.save();
+      return existing;
+    }
+
+    return Astrologer.create({
+      ...profile,
+      id: createAstrologerId(item.name),
+      rating: 0,
+      orders: 0
+    });
+  }
+
+  const existing = memoryAstrologers.get(id);
+  const now = new Date();
+  const storedProfile = {
+    ...(existing || {}),
+    ...profile,
+    id: existing?.id || createAstrologerId(item.name),
+    rating: existing?.rating || 0,
+    orders: existing?.orders || 0,
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  };
+
+  memoryAstrologers.set(id, storedProfile);
+  return storedProfile;
+}
+
 function validateRole(role, res, action) {
-  if (!["user", "admin"].includes(role)) {
-    res.status(400).json({ message: `Choose customer or admin ${action}.` });
+  if (!["user", "admin", "astrologer"].includes(role)) {
+    res.status(400).json({ message: `Choose customer, astrologer, or admin ${action}.` });
     return false;
   }
 
@@ -243,56 +449,65 @@ function readProfilePayload(payload = {}) {
   };
 }
 
-async function requireCustomerAccount(req, res) {
+async function requireProfileAccount(req, res) {
   const session = readAuthSession(req);
 
   if (!session) {
-    res.status(401).json({ message: "Sign in to manage your customer profile." });
+    res.status(401).json({ message: "Sign in to manage your profile." });
     return null;
   }
 
-  if (session.role !== "user") {
-    res.status(403).json({ message: "Only customer accounts can manage consultation profiles." });
+  if (!["user", "astrologer"].includes(session.role)) {
+    res.status(403).json({ message: "This account does not have an editable profile." });
     return null;
   }
 
   const account = await findAccountBySession(req, session);
 
   if (!account) {
-    res.status(404).json({ message: "Customer account not found." });
+    res.status(404).json({ message: "Account not found." });
     return null;
   }
 
   return { account, session };
 }
 
-export async function ensureDemoAccounts(mongoReady) {
-  seedMemoryAccounts();
-
-  if (!mongoReady) return;
-
-  await Promise.all(
-    demoAccounts.map(async (account) => {
-      const existing = await User.findOne({ email: account.email });
-      if (existing) return;
-
-      await User.create({
-        name: account.name,
-        email: account.email,
-        phone: account.phone,
-        role: account.role,
-        profile: account.profile || { ...emptyCustomerProfile },
-        adminCodeVerified: Boolean(account.adminCodeVerified),
-        passwordHash: hashPassword(account.password)
-      });
-    })
-  );
-}
-
 export function readAuthSession(req) {
   const header = req.get("authorization") || "";
   const token = header.replace(/^Bearer\s+/i, "").trim();
   return verifyAuthToken(token);
+}
+
+export async function listAstrologerProfiles(req) {
+  if (req.app.locals.mongoReady) {
+    const rows = await Astrologer.find().sort({ rating: -1, createdAt: -1 }).lean();
+    return rows.map(astrologerSnapshot);
+  }
+
+  return Array.from(memoryAstrologers.values()).map(astrologerSnapshot);
+}
+
+export async function findAstrologerByPublicId(req, astrologerId) {
+  const id = normalize(astrologerId);
+  if (!id) return null;
+
+  if (req.app.locals.mongoReady) {
+    return Astrologer.findOne({ id }).lean();
+  }
+
+  return Array.from(memoryAstrologers.values()).find((item) => item.id === id) || null;
+}
+
+export async function getAstrologerForSession(req, session) {
+  if (session?.role !== "astrologer") return null;
+
+  if (req.app.locals.mongoReady) {
+    return Astrologer.findOne({
+      $or: [{ userId: session.id }, { email: session.email }]
+    }).lean();
+  }
+
+  return memoryAstrologers.get(session.id) || null;
 }
 
 export async function getWalletForSession(req, session) {
@@ -357,6 +572,11 @@ export async function register(req, res, next) {
       return res.status(401).json({ message: "Enter the correct admin registration code." });
     }
 
+    const astrologerProfile =
+      role === "astrologer" ? readAstrologerPayload(req.body, { name, email, phone }) : null;
+
+    if (role === "astrologer" && !validateAstrologerProfile(astrologerProfile, res)) return;
+
     const existing = await findAccount(req, email);
 
     if (existing) {
@@ -372,9 +592,13 @@ export async function register(req, res, next) {
       passwordHash: hashPassword(password)
     });
 
-    const label = role === "admin" ? "Admin" : "Customer";
+    if (role === "astrologer") {
+      await createOrUpdateAstrologerProfile(req, account, astrologerProfile);
+    }
 
-    res.status(201).json(createSession(account, `${label} account created.`));
+    const label = role === "admin" ? "Admin" : role === "astrologer" ? "Astrologer" : "Customer";
+
+    res.status(201).json(await createSession(req, account, `${label} account created.`));
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({ message: "An account already exists with this email." });
@@ -416,12 +640,13 @@ export async function signIn(req, res, next) {
     }
 
     if (account.role !== role) {
-      const label = account.role === "admin" ? "admin" : "customer";
+      const label =
+        account.role === "admin" ? "admin" : account.role === "astrologer" ? "astrologer" : "customer";
       return res.status(403).json({ message: `This email is registered as a ${label} account.` });
     }
 
     const profile = roleProfiles[role];
-    res.json(createSession(account, `${profile.dashboard} unlocked.`));
+    res.json(await createSession(req, account, `${profile.dashboard} unlocked.`));
   } catch (error) {
     next(error);
   }
@@ -429,11 +654,11 @@ export async function signIn(req, res, next) {
 
 export async function getProfile(req, res, next) {
   try {
-    const result = await requireCustomerAccount(req, res);
+    const result = await requireProfileAccount(req, res);
     if (!result) return;
 
     res.json({
-      user: publicUser(result.account)
+      user: await publicUser(req, result.account)
     });
   } catch (error) {
     next(error);
@@ -442,16 +667,15 @@ export async function getProfile(req, res, next) {
 
 export async function updateProfile(req, res, next) {
   try {
-    const result = await requireCustomerAccount(req, res);
+    const result = await requireProfileAccount(req, res);
     if (!result) return;
 
-    const { account } = result;
+    const { account, session } = result;
     const name = normalize(req.body.name || account.name);
     const phone = normalize(req.body.phone || account.phone);
-    const profile = readProfilePayload(req.body);
 
     if (!name || name.length < 2) {
-      return res.status(400).json({ message: "Enter the customer name." });
+      return res.status(400).json({ message: "Enter the account holder name." });
     }
 
     if (!phone || !isValidPhone(phone)) {
@@ -460,8 +684,30 @@ export async function updateProfile(req, res, next) {
 
     account.name = name;
     account.phone = phone;
-    account.profile = profile;
     account.updatedAt = new Date();
+
+    if (session.role === "user") {
+      account.profile = readProfilePayload(req.body);
+    }
+
+    if (session.role === "astrologer") {
+      const astrologerProfile = readAstrologerPayload(req.body, {
+        name,
+        email: account.email,
+        phone
+      });
+
+      if (!validateAstrologerProfile(astrologerProfile, res)) return;
+
+      if (req.app.locals.mongoReady) {
+        await account.save();
+      } else {
+        memoryAccounts.set(account.email, account);
+      }
+
+      await createOrUpdateAstrologerProfile(req, account, astrologerProfile);
+      return res.json(await createSession(req, account, "Astrologer profile saved."));
+    }
 
     if (req.app.locals.mongoReady) {
       await account.save();
@@ -469,7 +715,7 @@ export async function updateProfile(req, res, next) {
       memoryAccounts.set(account.email, account);
     }
 
-    res.json(createSession(account, "Customer profile saved."));
+    res.json(await createSession(req, account, "Customer profile saved."));
   } catch (error) {
     next(error);
   }

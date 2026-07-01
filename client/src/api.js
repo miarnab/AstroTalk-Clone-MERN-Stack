@@ -59,15 +59,19 @@ export const api = {
   userPanel: (session) =>
     request("/api/panels/user", {
       headers: {
-        Authorization: `Bearer ${session?.token || ""}`,
-        "x-demo-role": session?.user?.role || "user"
+        Authorization: `Bearer ${session?.token || ""}`
+      }
+    }),
+  astrologerPanel: (session) =>
+    request("/api/panels/astrologer", {
+      headers: {
+        Authorization: `Bearer ${session?.token || ""}`
       }
     }),
   adminPanel: (session) =>
     request("/api/panels/admin", {
       headers: {
-        Authorization: `Bearer ${session?.token || ""}`,
-        "x-demo-role": session?.user?.role || "admin"
+        Authorization: `Bearer ${session?.token || ""}`
       }
     }),
   book: (payload, session) =>

@@ -43,6 +43,26 @@ export const initialProfile = {
   preferredLanguage: ""
 };
 
+export const initialAstrologerProfile = {
+  name: "",
+  email: "",
+  phone: "",
+  title: "",
+  bio: "",
+  city: "",
+  specialties: "",
+  languages: "",
+  experience: "",
+  pricePerMinute: "",
+  modes: ["chat", "call"],
+  status: "online",
+  responseTime: "",
+  availability: "",
+  education: "",
+  certifications: "",
+  accent: "#f4b400"
+};
+
 export const initialSignIn = {
   role: "user",
   name: "",
@@ -51,7 +71,8 @@ export const initialSignIn = {
   password: "",
   confirmPassword: "",
   adminCode: "",
-  remember: true
+  remember: true,
+  ...initialAstrologerProfile
 };
 
 export const signInModes = {
@@ -61,9 +82,17 @@ export const signInModes = {
     registerTitle: "Create customer account",
     signInDescription: "Continue bookings, wallet activity, saved kundli details, and chat history.",
     registerDescription: "Register for consultations, wallet access, saved kundli details, and chat history.",
-    email: "customer@astrotalk.test",
-    password: "user123",
+    emailPlaceholder: "customer@example.com",
     highlights: ["Saved consultations", "Wallet balance", "Personalized tools"]
+  },
+  astrologer: {
+    label: "Astrologer",
+    signInTitle: "Sign in as an astrologer",
+    registerTitle: "Create astrologer profile",
+    signInDescription: "Manage your public listing, availability, pricing, and consultations.",
+    registerDescription: "Register and fill every listing detail customers need before booking.",
+    emailPlaceholder: "astrologer@example.com",
+    highlights: ["Public listing", "Availability controls", "Consultation queue"]
   },
   admin: {
     label: "Admin",
@@ -71,8 +100,7 @@ export const signInModes = {
     registerTitle: "Create admin account",
     signInDescription: "Manage astrologers, bookings, service content, and live support queues.",
     registerDescription: "Register an operations account for approvals, bookings, and service controls.",
-    email: "admin@astrotalk.test",
-    password: "admin123",
+    emailPlaceholder: "admin@example.com",
     adminCode: "ADMIN-2026",
     highlights: ["Astrologer approvals", "Booking desk", "Catalog controls"]
   }

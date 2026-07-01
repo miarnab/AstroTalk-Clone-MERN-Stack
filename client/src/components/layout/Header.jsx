@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleUserRound, LogOut, Sun, UserCog, WalletCards } from "lucide-react";
+import { ArrowLeft, CircleUserRound, LogOut, Sparkles, Sun, UserCog, WalletCards } from "lucide-react";
 
 function Header({ activePage, session, onHome, onLogout, onOpenPanel, onOpenProfile, onOpenSignIn }) {
   return (
@@ -24,14 +24,14 @@ function Header({ activePage, session, onHome, onLogout, onOpenPanel, onOpenProf
         </a>
       </nav>
       <div className="top-actions">
-        {session?.user.role === "user" ? (
+        {["user", "astrologer"].includes(session?.user.role) ? (
           <button
             className="icon-button"
             type="button"
-            aria-label="Open customer profile"
+            aria-label={session.user.role === "astrologer" ? "Open astrologer profile" : "Open customer profile"}
             onClick={onOpenProfile}
           >
-            <CircleUserRound size={19} />
+            {session.user.role === "astrologer" ? <Sparkles size={19} /> : <CircleUserRound size={19} />}
           </button>
         ) : null}
         <button
@@ -40,11 +40,23 @@ function Header({ activePage, session, onHome, onLogout, onOpenPanel, onOpenProf
           aria-label={session ? "Open account panel" : "Wallet balance"}
           onClick={session ? onOpenPanel : onOpenSignIn}
         >
-          {session?.user.role === "admin" ? <UserCog size={19} /> : <WalletCards size={19} />}
+          {session?.user.role === "admin" ? (
+            <UserCog size={19} />
+          ) : session?.user.role === "astrologer" ? (
+            <Sparkles size={19} />
+          ) : (
+            <WalletCards size={19} />
+          )}
         </button>
         {session ? (
           <div className="account-chip">
-            {session.user.role === "admin" ? <UserCog size={18} /> : <CircleUserRound size={18} />}
+            {session.user.role === "admin" ? (
+              <UserCog size={18} />
+            ) : session.user.role === "astrologer" ? (
+              <Sparkles size={18} />
+            ) : (
+              <CircleUserRound size={18} />
+            )}
             <span>
               <strong>{session.user.name}</strong>
               <small>{session.user.role}</small>

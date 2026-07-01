@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["user", "admin"],
+      enum: ["user", "admin", "astrologer"],
       default: "user",
       required: true
     },
@@ -68,19 +68,19 @@ const userSchema = new mongoose.Schema(
     wallet: {
       balance: {
         type: Number,
-        default: 1200
+        default: 0
       },
       rewards: {
         type: Number,
-        default: 340
+        default: 0
       },
       freeMinutes: {
         type: Number,
-        default: 12
+        default: 0
       },
       spendThisMonth: {
         type: Number,
-        default: 860
+        default: 0
       }
     }
   },

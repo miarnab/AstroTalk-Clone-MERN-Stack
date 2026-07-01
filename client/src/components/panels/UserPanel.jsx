@@ -167,13 +167,17 @@ function UserPanel({
             </div>
           </div>
           <div className="compact-panel-list">
-            {data.savedTools.map((tool) => (
-              <div className="compact-panel-row" key={tool.id}>
-                <strong>{tool.title}</strong>
-                <span>{tool.detail}</span>
-                <small>{tool.updatedAt}</small>
-              </div>
-            ))}
+            {data.savedTools.length ? (
+              data.savedTools.map((tool) => (
+                <div className="compact-panel-row" key={tool.id}>
+                  <strong>{tool.title}</strong>
+                  <span>{tool.detail}</span>
+                  <small>{tool.updatedAt}</small>
+                </div>
+              ))
+            ) : (
+              <div className="empty-panel">Saved astrology tools will appear here.</div>
+            )}
           </div>
         </article>
 
@@ -188,18 +192,22 @@ function UserPanel({
             </div>
           </div>
           <div className="compact-panel-list">
-            {data.recommendations.map((expert) => (
-              <div className="compact-panel-row expert-row" key={expert.id}>
-                <div>
-                  <strong>{expert.name}</strong>
-                  <span>{expert.title}</span>
+            {data.recommendations.length ? (
+              data.recommendations.map((expert) => (
+                <div className="compact-panel-row expert-row" key={expert.id}>
+                  <div>
+                    <strong>{expert.name}</strong>
+                    <span>{expert.title}</span>
+                  </div>
+                  <Pill tone={expert.status}>{expert.status}</Pill>
+                  <small>
+                    {expert.rating} rating - Rs {expert.pricePerMinute}/min
+                  </small>
                 </div>
-                <Pill tone={expert.status}>{expert.status}</Pill>
-                <small>
-                  {expert.rating} rating - Rs {expert.pricePerMinute}/min
-                </small>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="empty-panel">Astrologer recommendations will appear after profiles are listed.</div>
+            )}
           </div>
         </article>
 
@@ -214,13 +222,17 @@ function UserPanel({
             </div>
           </div>
           <div className="panel-list">
-            {history.map((booking) => (
-              <BookingRow
-                key={`${booking.bookingId}-history`}
-                booking={booking}
-                onOpenSession={onOpenSession}
-              />
-            ))}
+            {history.length ? (
+              history.map((booking) => (
+                <BookingRow
+                  key={`${booking.bookingId}-history`}
+                  booking={booking}
+                  onOpenSession={onOpenSession}
+                />
+              ))
+            ) : (
+              <div className="empty-panel">Completed consultations will appear here.</div>
+            )}
           </div>
         </article>
 
@@ -235,9 +247,11 @@ function UserPanel({
             </div>
           </div>
           <div className="notification-list">
-            {data.notifications.map((item) => (
-              <span key={item}>{item}</span>
-            ))}
+            {data.notifications.length ? (
+              data.notifications.map((item) => <span key={item}>{item}</span>)
+            ) : (
+              <span>No account updates yet.</span>
+            )}
           </div>
         </article>
       </section>

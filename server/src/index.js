@@ -6,9 +6,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import morgan from "morgan";
 import { connectDB } from "./config/db.js";
-import { astrologers } from "./data/seed.js";
+import { knownSeedData } from "./data/seed.js";
 import Astrologer from "./models/Astrologer.js";
-import authRoutes, { ensureDemoAccounts, signIn } from "./routes/auth.js";
+import Consultation from "./models/Consultation.js";
+import User from "./models/User.js";
+import authRoutes, { signIn } from "./routes/auth.js";
 import catalogRoutes from "./routes/catalog.js";
 import consultationRoutes from "./routes/consultations.js";
 import panelRoutes from "./routes/panels.js";
@@ -30,14 +32,18 @@ app.use(morgan("dev"));
 app.locals.mongoReady = await connectDB();
 
 if (app.locals.mongoReady) {
-  const count = await Astrologer.countDocuments();
-  if (count === 0) {
-    await Astrologer.insertMany(astrologers);
-    console.log("Seeded astrologers into MongoDB.");
+  const [astrologerCleanup, userCleanup, bookingCleanup] = await Promise.all([
+    Astrologer.deleteMany({ id: { $in: knownSeedData.astrologerIds } }),
+    User.deleteMany({ email: { $in: knownSeedData.userEmails } }),
+    Consultation.deleteMany({ bookingId: { $in: knownSeedData.bookingIds } })
+  ]);
+  const removedCount =
+    astrologerCleanup.deletedCount + userCleanup.deletedCount + bookingCleanup.deletedCount;
+
+  if (removedCount > 0) {
+    console.log(`Removed ${removedCount} old seeded record${removedCount === 1 ? "" : "s"}.`);
   }
 }
-
-await ensureDemoAccounts(app.locals.mongoReady);
 
 app.post("/api/auth/signin", signIn);
 app.use("/api", catalogRoutes);

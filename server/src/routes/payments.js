@@ -1,6 +1,6 @@
 import { Router } from "express";
 import Consultation from "../models/Consultation.js";
-import { getDemoConsultations, rememberDemoConsultation } from "../data/bookings.js";
+import { getConsultations, rememberConsultation } from "../data/bookings.js";
 import {
   createPaymentOrder,
   findPaymentOrder,
@@ -101,7 +101,7 @@ async function createConsultationFromOrder(req, order, { paymentStatus, paymentI
     return toSerializableBooking(created);
   }
 
-  const existing = getDemoConsultations().find(
+  const existing = getConsultations().find(
     (item) => item.razorpayOrderId === order.razorpayOrderId
   );
 
@@ -117,7 +117,7 @@ async function createConsultationFromOrder(req, order, { paymentStatus, paymentI
     return existing;
   }
 
-  return rememberDemoConsultation(booking);
+  return rememberConsultation(booking);
 }
 
 async function createPaidConsultation(req, order, paymentId) {
